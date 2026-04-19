@@ -13,6 +13,8 @@ import androidx.navigation.compose.rememberNavController
 import com.ndejje.mycampusconnect.screens.*
 import com.ndejje.mycampusconnect.ui.theme.MyCampusConnectTheme
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.ndejje.mycampusconnect.viewmodels.AuthViewModel
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -28,7 +30,13 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun CampusConnectApp() {
     val navController = rememberNavController()
+    val authViewModel: AuthViewModel = viewModel()
+    val currentUser by authViewModel.currentUser.collectAsState()
     var isLoggedIn by remember { mutableStateOf(false) }
+
+    LaunchedEffect(currentUser) {
+        isLoggedIn = currentUser != null
+    }
 
     Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
         NavHost(

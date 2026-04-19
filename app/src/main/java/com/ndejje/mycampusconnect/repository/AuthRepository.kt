@@ -17,9 +17,11 @@ class AuthRepository(
             val userId = result.user?.uid ?: throw Exception("User creation failed")
 
             // Update profile name
-            result.user?.updateProfile(UserProfileChangeRequest.Builder()
-                .setDisplayName(name)
-                .build())?.await()
+            result.user?.updateProfile(
+                UserProfileChangeRequest.Builder()
+                    .setDisplayName(name)
+                    .build()
+            )?.await()
 
             val user = User(
                 userId = userId,
@@ -29,9 +31,9 @@ class AuthRepository(
             )
 
             firestore.collection("users").document(userId).set(user).await()
-            Result.success(user)
+            Result.success(user)  // ← This is correct
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(e)  // ← This is correct
         }
     }
 
@@ -41,11 +43,12 @@ class AuthRepository(
             val userId = result.user?.uid ?: throw Exception("Login failed")
 
             val userDoc = firestore.collection("users").document(userId).get().await()
-            val user = userDoc.toObject(User.class) ?: throw Exception("User not found")
+            val user = userDoc.toObject(User::class.java)  // ← FIXED: Use ::class.java
+                ?: throw Exception("User not found")
 
-                    Result.success(user)
+            Result.success(user)  // ← This is correct
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(e)  // ← This is correct
         }
     }
 

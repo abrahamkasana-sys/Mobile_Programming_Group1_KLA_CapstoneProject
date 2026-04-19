@@ -23,6 +23,7 @@ import com.google.firebase.storage.FirebaseStorage
 import com.ndejje.mycampusconnect.models.User
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
+import com.ndejje.mycampusconnect.repository.AuthRepository
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
