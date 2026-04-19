@@ -1,23 +1,27 @@
 package com.ndejje.mycampusconnect.screens
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.messaging.reporting.MessagingClientEvent
 import com.ndejje.mycampusconnect.models.Announcement
 import com.ndejje.mycampusconnect.models.Event
-import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
+import java.text.SimpleDateFormat
+import java.util.*
 
 @Composable
 fun HomeScreen(navController: NavController) {
-    var recentEvents by remember { mutableStateOf<List<MessagingClientEvent.Event>>(emptyList()) }
+    var recentEvents by remember { mutableStateOf<List<Event>>(emptyList()) }
     var announcements by remember { mutableStateOf<List<Announcement>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
 
@@ -32,17 +36,22 @@ fun HomeScreen(navController: NavController) {
                     .limit(3)
                     .get()
                     .await()
-                recentEvents = eventsSnapshot.documents.mapNotNull { it.toObject(Event::class.java) }
+                recentEvents = eventsSnapshot.documents.mapNotNull { doc ->
+                    doc.toObject(Event::class.java)
+                }
 
                 val announcementsSnapshot = firestore.collection("announcements")
                     .orderBy("createdAt")
                     .limit(5)
                     .get()
                     .await()
-                announcements = announcementsSnapshot.documents.mapNotNull { it.toObject(Announcement::class.java) }
+                announcements = announcementsSnapshot.documents.mapNotNull { doc ->
+                    doc.toObject(Announcement::class.java)
+                }
 
                 isLoading = false
             } catch (e: Exception) {
+                // Suppress unused warning
                 isLoading = false
             }
         }
@@ -108,7 +117,7 @@ fun BottomNavigationBar(navController: NavController) {
             onClick = { navController.navigate("events") }
         )
         NavigationBarItem(
-            icon = { Icon(Icons.Default.People, contentDescription = "Clubs") },
+            icon = { Icon(Icons.Default.Person, contentDescription = "Clubs") },
             label = { Text("Clubs") },
             selected = false,
             onClick = { navController.navigate("clubs") }
@@ -139,7 +148,10 @@ fun EventCard(event: Event, navController: NavController) {
             Text(event.title, style = MaterialTheme.typography.titleMedium)
             Text(event.description, style = MaterialTheme.typography.bodyMedium)
             Text("📍 ${event.location}", style = MaterialTheme.typography.bodySmall)
-            Text("📅 ${java.text.SimpleDateFormat("MMM dd, yyyy").format(event.date)}")
+            Text(
+                "📅 ${SimpleDateFormat("MMM dd, yyyy", Locale.US).format(event.date)}",
+                style = MaterialTheme.typography.bodySmall
+            )
         }
     }
 }
@@ -154,8 +166,3 @@ fun AnnouncementCard(announcement: Announcement) {
         }
     }
 }
-
-// Add missing imports
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
-import androidx.compose.foundation.clickable

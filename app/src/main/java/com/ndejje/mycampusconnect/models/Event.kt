@@ -1,6 +1,6 @@
 package com.ndejje.mycampusconnect.models
 
-data class Events(
+data class Event(
     val eventId: String = "",
     val clubId: String = "",
     val clubName: String = "",
