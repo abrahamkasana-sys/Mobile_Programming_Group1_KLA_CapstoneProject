@@ -10,11 +10,24 @@ import androidx.compose.ui.Modifier
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import com.ndejje.mycampusconnect.ui.screens.*
+import com.ndejje.mycampusconnect.screens.*
 import com.ndejje.mycampusconnect.ui.theme.MyCampusConnectTheme
 import androidx.compose.foundation.layout.fillMaxSize
 import com.ndejje.mycampusconnect.screens.SplashScreen
 import com.ndejje.mycampusconnect.screens.LoginScreen
+import com.ndejje.mycampusconnect.screens.RegisterScreen
+import com.ndejje.mycampusconnect.screens.HomeScreen
+import com.ndejje.mycampusconnect.screens.EventsScreen
+import com.ndejje.mycampusconnect.screens.ClubsScreen
+import com.ndejje.mycampusconnect.screens.LostAndFoundScreen
+import com.ndejje.mycampusconnect.screens.NotificationsScreen
+import com.ndejje.mycampusconnect.screens.ProfileScreen
+import com.ndejje.mycampusconnect.screens.EventDetailScreen
+import com.ndejje.mycampusconnect.screens.ClubDetailScreen
+import com.ndejje.mycampusconnect.screens.LostItemDetailScreen
+import com.ndejje.mycampusconnect.screens.PostLostItemScreen
+import com.ndejje.mycampusconnect.screens.EditProfileScreen
+import com.ndejje.mycampusconnect.screens.AdminPanelScreen
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
