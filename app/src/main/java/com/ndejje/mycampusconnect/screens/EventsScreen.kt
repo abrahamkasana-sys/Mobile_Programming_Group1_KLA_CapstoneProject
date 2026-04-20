@@ -4,9 +4,16 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.google.firebase.firestore.FirebaseFirestore
@@ -15,34 +22,17 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import java.text.SimpleDateFormat
 import java.util.*
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.DateRange
-import androidx.compose.material.icons.filled.LocationOn
-import androidx.compose.material.icons.filled.People
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.graphics.vector.ImageVector
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EventsScreen(navController: NavController) {
     var events by remember { mutableStateOf<List<Event>>(emptyList()) }
-    var isLoading by remember { mutableStateOf(true)}
+    var isLoading by remember { mutableStateOf(true) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
     val scope = rememberCoroutineScope()
     val firestore = FirebaseFirestore.getInstance()
 
-    // Load events when screen opens
     LaunchedEffect(Unit) {
         scope.launch {
             try {
@@ -54,8 +44,8 @@ fun EventsScreen(navController: NavController) {
                     doc.toObject(Event::class.java)?.copy(eventId = doc.id)
                 }
                 isLoading = false
-            } catch (e: Exception) {
-                errorMessage = e.message
+            } catch (_: Exception) {
+                errorMessage = "Failed to load events"
                 isLoading = false
             }
         }
@@ -190,7 +180,7 @@ fun EventItemCard(event: Event, navController: NavController) {
                     horizontalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     Icon(
-                        imageVector = Icons.Default.People,
+                        imageVector = Icons.Default.Person,  // Changed from People to Person
                         contentDescription = "Club",
                         modifier = Modifier.size(16.dp)
                     )
@@ -204,6 +194,7 @@ fun EventItemCard(event: Event, navController: NavController) {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EventDetailScreen(eventId: String, navController: NavController) {
     var event by remember { mutableStateOf<Event?>(null) }
@@ -218,7 +209,7 @@ fun EventDetailScreen(eventId: String, navController: NavController) {
                 val doc = firestore.collection("events").document(eventId).get().await()
                 event = doc.toObject(Event::class.java)?.copy(eventId = doc.id)
                 isLoading = false
-            } catch (e: Exception) {
+            } catch (_: Exception) {
                 isLoading = false
             }
         }
@@ -230,7 +221,7 @@ fun EventDetailScreen(eventId: String, navController: NavController) {
                 title = { Text("Event Details") },
                 navigationIcon = {
                     IconButton(onClick = { navController.navigateUp() }) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -316,7 +307,7 @@ fun EventDetailScreen(eventId: String, navController: NavController) {
 
                                 if (event!!.clubName.isNotEmpty()) {
                                     DetailRow(
-                                        icon = Icons.Default.People,
+                                        icon = Icons.Default.Person,  // Changed from People to Person
                                         label = "Hosted by",
                                         value = event!!.clubName
                                     )
@@ -331,7 +322,7 @@ fun EventDetailScreen(eventId: String, navController: NavController) {
 }
 
 @Composable
-fun DetailRow(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, value: String) {
+fun DetailRow(icon: ImageVector, label: String, value: String) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -357,4 +348,3 @@ fun DetailRow(icon: androidx.compose.ui.graphics.vector.ImageVector, label: Stri
         }
     }
 }
-

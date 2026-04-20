@@ -50,8 +50,7 @@ fun HomeScreen(navController: NavController) {
                 }
 
                 isLoading = false
-            } catch (e: Exception) {
-                // Suppress unused warning
+            } catch (_: Exception) {
                 isLoading = false
             }
         }
@@ -111,7 +110,7 @@ fun BottomNavigationBar(navController: NavController) {
             onClick = { navController.navigate("home") }
         )
         NavigationBarItem(
-            icon = { Icon(Icons.Default.Event, contentDescription = "Events") },
+            icon = { Icon(Icons.Default.DateRange, contentDescription = "Events") },
             label = { Text("Events") },
             selected = false,
             onClick = { navController.navigate("events") }

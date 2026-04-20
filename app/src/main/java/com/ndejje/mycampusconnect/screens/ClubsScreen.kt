@@ -5,22 +5,21 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.ndejje.mycampusconnect.models.Club
+import com.ndejje.mycampusconnect.models.Event
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
-import com.ndejje.mycampusconnect.models.Event
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -36,18 +35,15 @@ fun ClubsScreen(navController: NavController) {
     val auth = FirebaseAuth.getInstance()
     val currentUserId = auth.currentUser?.uid
 
-    // Load user data and clubs
     LaunchedEffect(Unit) {
         scope.launch {
             try {
-                // Get current user's role and club
                 if (currentUserId != null) {
                     val userDoc = firestore.collection("users").document(currentUserId).get().await()
                     userRole = userDoc.getString("role") ?: "student"
                     userClubId = userDoc.getString("clubId")
                 }
 
-                // Load all clubs
                 val snapshot = firestore.collection("clubs")
                     .orderBy("name")
                     .get()
@@ -56,8 +52,8 @@ fun ClubsScreen(navController: NavController) {
                     doc.toObject(Club::class.java)?.copy(clubId = doc.id)
                 }
                 isLoading = false
-            } catch (e: Exception) {
-                errorMessage = e.message
+            } catch (_: Exception) {
+                errorMessage = "Failed to load clubs"
                 isLoading = false
             }
         }
@@ -71,7 +67,6 @@ fun ClubsScreen(navController: NavController) {
                     containerColor = MaterialTheme.colorScheme.primaryContainer
                 ),
                 actions = {
-                    // Show create club button for admins only
                     if (userRole == "admin") {
                         IconButton(onClick = { /* Navigate to create club screen */ }) {
                             Icon(Icons.Default.Add, contentDescription = "Create Club")
@@ -183,7 +178,6 @@ fun ClubCard(
                 .fillMaxWidth()
                 .padding(16.dp)
         ) {
-            // Club header
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -202,10 +196,8 @@ fun ClubCard(
                     )
                 }
 
-                // Join/Leave button
                 when {
                     userRole == "admin" -> {
-                        // Admin can edit any club
                         Button(
                             onClick = { /* Navigate to edit club */ },
                             modifier = Modifier.width(100.dp)
@@ -237,7 +229,6 @@ fun ClubCard(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Club description
             Text(
                 text = club.description,
                 style = MaterialTheme.typography.bodyMedium,
@@ -247,13 +238,12 @@ fun ClubCard(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Club stats
             Row(
                 horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
-                        imageVector = Icons.Default.People,
+                        imageVector = Icons.Default.Person,  // Changed from Group to Person
                         contentDescription = "Members",
                         modifier = Modifier.size(16.dp),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant
@@ -283,6 +273,7 @@ fun ClubCard(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ClubDetailScreen(clubId: String, navController: NavController) {
     var club by remember { mutableStateOf<Club?>(null) }
@@ -299,18 +290,15 @@ fun ClubDetailScreen(clubId: String, navController: NavController) {
     LaunchedEffect(clubId) {
         scope.launch {
             try {
-                // Load club details
                 val clubDoc = firestore.collection("clubs").document(clubId).get().await()
                 club = clubDoc.toObject(Club::class.java)?.copy(clubId = clubDoc.id)
 
-                // Check if user is a member
                 if (currentUserId != null) {
                     val userDoc = firestore.collection("users").document(currentUserId).get().await()
                     userRole = userDoc.getString("role") ?: "student"
                     isJoined = userDoc.getString("clubId") == clubId
                 }
 
-                // Load club events
                 val eventsSnapshot = firestore.collection("events")
                     .whereEqualTo("clubId", clubId)
                     .orderBy("date")
@@ -321,7 +309,7 @@ fun ClubDetailScreen(clubId: String, navController: NavController) {
                 }
 
                 isLoading = false
-            } catch (e: Exception) {
+            } catch (_: Exception) {
                 isLoading = false
             }
         }
@@ -333,14 +321,13 @@ fun ClubDetailScreen(clubId: String, navController: NavController) {
                 title = { Text(club?.name ?: "Club Details") },
                 navigationIcon = {
                     IconButton(onClick = { navController.navigateUp() }) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.primaryContainer
                 ),
                 actions = {
-                    // Show edit button for club leaders or admin
                     if (userRole == "admin" || (userRole == "club_leader" && isJoined)) {
                         IconButton(onClick = { /* Navigate to edit club */ }) {
                             Icon(Icons.Default.Edit, contentDescription = "Edit Club")
@@ -379,7 +366,6 @@ fun ClubDetailScreen(clubId: String, navController: NavController) {
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    // Club info card
                     item {
                         Card(
                             modifier = Modifier.fillMaxWidth(),
@@ -418,7 +404,7 @@ fun ClubDetailScreen(clubId: String, navController: NavController) {
                                     horizontalArrangement = Arrangement.spacedBy(16.dp)
                                 ) {
                                     Icon(
-                                        imageVector = Icons.Default.People,
+                                        imageVector = Icons.Default.Person,  // Changed from Group to Person
                                         contentDescription = null
                                     )
                                     Text("${club!!.memberCount} Members")
@@ -426,7 +412,6 @@ fun ClubDetailScreen(clubId: String, navController: NavController) {
 
                                 Spacer(modifier = Modifier.height(16.dp))
 
-                                // Join/Leave button
                                 when {
                                     userRole == "admin" -> {
                                         Button(
@@ -470,7 +455,6 @@ fun ClubDetailScreen(clubId: String, navController: NavController) {
                         }
                     }
 
-                    // Club events section
                     if (clubEvents.isNotEmpty()) {
                         item {
                             Text(
@@ -480,11 +464,10 @@ fun ClubDetailScreen(clubId: String, navController: NavController) {
                         }
 
                         items(clubEvents) { event ->
-                            EventItemCard(event, navController)
+                            EventItemCard(event = event, navController = navController)
                         }
                     }
 
-                    // Create event button for club leaders
                     if ((userRole == "club_leader" && isJoined) || userRole == "admin") {
                         item {
                             Button(
@@ -501,14 +484,12 @@ fun ClubDetailScreen(clubId: String, navController: NavController) {
     }
 }
 
-// Helper functions for club membership
+// Helper functions
 suspend fun joinClub(userId: String?, clubId: String, firestore: FirebaseFirestore) {
     if (userId == null) return
 
-    // Update user's club
     firestore.collection("users").document(userId).update("clubId", clubId).await()
 
-    // Increment club member count
     val clubRef = firestore.collection("clubs").document(clubId)
     val club = clubRef.get().await()
     val currentCount = club.getLong("memberCount") ?: 0
@@ -518,15 +499,12 @@ suspend fun joinClub(userId: String?, clubId: String, firestore: FirebaseFiresto
 suspend fun leaveClub(userId: String?, firestore: FirebaseFirestore) {
     if (userId == null) return
 
-    // Get user's current club
     val userDoc = firestore.collection("users").document(userId).get().await()
     val clubId = userDoc.getString("clubId")
 
     if (clubId != null) {
-        // Remove club from user
         firestore.collection("users").document(userId).update("clubId", null).await()
 
-        // Decrement club member count
         val clubRef = firestore.collection("clubs").document(clubId)
         val club = clubRef.get().await()
         val currentCount = club.getLong("memberCount") ?: 0
