@@ -1,9 +1,14 @@
 package com.ndejje.mycampusconnect.screens
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -11,18 +16,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
-import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.tasks.await
 import java.text.SimpleDateFormat
 import java.util.*
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.filled.*
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
-import androidx.compose.material3.Badge
 
 data class Notification(
     val notificationId: String = "",
@@ -42,14 +38,12 @@ fun NotificationsScreen(navController: NavController) {
     var filter by remember { mutableStateOf("all") } // all, unread
 
     val scope = rememberCoroutineScope()
-    val firestore = FirebaseFirestore.getInstance()
 
     fun loadNotifications() {
         scope.launch {
             isLoading = true
             try {
                 // For demo, create sample notifications
-                // In production, you'd fetch from Firestore
                 notifications = listOf(
                     Notification(
                         notificationId = "1",
@@ -77,7 +71,7 @@ fun NotificationsScreen(navController: NavController) {
                     )
                 )
                 isLoading = false
-            } catch (e: Exception) {
+            } catch (_: Exception) {
                 isLoading = false
             }
         }
@@ -149,7 +143,7 @@ fun NotificationsScreen(navController: NavController) {
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Icon(
-                            imageVector = Icons.Default.NotificationsNone,
+                            imageVector = Icons.Default.Notifications,  // Changed from NotificationsNone to Notifications
                             contentDescription = "No notifications",
                             modifier = Modifier.size(64.dp),
                             tint = MaterialTheme.colorScheme.onSurfaceVariant
@@ -232,9 +226,9 @@ fun NotificationCard(
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
                         imageVector = when (notification.type) {
-                            "event" -> Icons.Default.Event
-                            "club" -> Icons.Default.People
-                            else -> Icons.Default.Announcement
+                            "event" -> Icons.Default.DateRange  // Changed from Event to DateRange
+                            "club" -> Icons.Default.Person  // Changed from People to Person
+                            else -> Icons.Default.Info  // Changed from Announcement to Info
                         },
                         contentDescription = null,
                         tint = when (notification.type) {

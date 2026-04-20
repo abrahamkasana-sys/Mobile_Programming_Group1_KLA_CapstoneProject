@@ -28,9 +28,10 @@ import java.text.SimpleDateFormat
 import java.util.*
 import androidx.compose.material.icons.filled.*
 import androidx.compose.foundation.background
-import androidx.compose.ui.graphics.Color
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -60,7 +61,7 @@ fun LostAndFoundScreen(navController: NavController) {
                     doc.toObject(LostItem::class.java)?.copy(itemId = doc.id)
                 }
                 isLoading = false
-            } catch (e: Exception) {
+            } catch (_: Exception) {
                 isLoading = false
             }
         }
@@ -333,7 +334,7 @@ fun PostLostItemScreen(navController: NavController) {
             isUploading = true
 
             try {
-                // Get user name
+                // Get username
                 val userDoc = firestore.collection("users").document(currentUser.uid).get().await()
                 val userName = userDoc.getString("name") ?: currentUser.email ?: "Anonymous"
 
@@ -344,11 +345,7 @@ fun PostLostItemScreen(navController: NavController) {
                     val storageRef = storage.reference
                     val imageRef = storageRef.child("lost_items/${System.currentTimeMillis()}_${currentUser.uid}.jpg")
 
-                    // Compress and upload image
-                    val inputStream = uri.let {
-                        val contentResolver = navController.context.contentResolver
-                        contentResolver.openInputStream(uri)
-                    }
+                    val inputStream = navController.context.contentResolver.openInputStream(uri)
                     inputStream?.let {
                         imageRef.putStream(it).await()
                         imageUrl = imageRef.downloadUrl.await().toString()
@@ -359,7 +356,7 @@ fun PostLostItemScreen(navController: NavController) {
                 val lostItem = LostItem(
                     itemId = "",
                     userId = currentUser.uid,
-                    userName = userName ?: "User",
+                    userName = userName,
                     title = title,
                     description = description,
                     location = location,
@@ -372,11 +369,10 @@ fun PostLostItemScreen(navController: NavController) {
                 firestore.collection("lost_items").add(lostItem).await()
 
                 isUploading = false
-                navController.navigateUp() // Go back
+                navController.navigateUp()
 
-            } catch (e: Exception) {
-                isUploading = false
-                // Show error
+            } catch (_: Exception) {
+                isUploading = false  // ← FIXED: Changed from isLoading to isUploading
             }
         }
     }
@@ -387,7 +383,7 @@ fun PostLostItemScreen(navController: NavController) {
                 title = { Text("Post Lost/Found Item") },
                 navigationIcon = {
                     IconButton(onClick = { navController.navigateUp() }) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -537,7 +533,7 @@ fun LostItemDetailScreen(itemId: String, navController: NavController) {
                 val doc = firestore.collection("lost_items").document(itemId).get().await()
                 item = doc.toObject(LostItem::class.java)?.copy(itemId = doc.id)
                 isLoading = false
-            } catch (e: Exception) {
+            } catch (_: Exception) {
                 isLoading = false
             }
         }
@@ -549,7 +545,7 @@ fun LostItemDetailScreen(itemId: String, navController: NavController) {
                 title = { Text("Item Details") },
                 navigationIcon = {
                     IconButton(onClick = { navController.navigateUp() }) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(

@@ -5,8 +5,13 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -18,12 +23,14 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.UserProfileChangeRequest
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.storage.FirebaseStorage
 import com.ndejje.mycampusconnect.models.User
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
-import com.ndejje.mycampusconnect.repository.AuthRepository
+import java.text.SimpleDateFormat
+import java.util.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -32,8 +39,8 @@ fun ProfileScreen(navController: NavController) {
     var isLoading by remember { mutableStateOf(true) }
     var userRole by remember { mutableStateOf("student") }
     var userClub by remember { mutableStateOf<String?>(null) }
-    var myEventsCount by remember { mutableStateOf(0) }
-    var myLostItemsCount by remember { mutableStateOf(0) }
+    var myEventsCount by remember { mutableIntStateOf(0) }
+    var myLostItemsCount by remember { mutableIntStateOf(0) }
 
     val scope = rememberCoroutineScope()
     val firestore = FirebaseFirestore.getInstance()
@@ -49,14 +56,12 @@ fun ProfileScreen(navController: NavController) {
                     userRole = user?.role ?: "student"
                     userClub = user?.clubId
 
-                    // Count user's events
                     val eventsSnapshot = firestore.collection("events")
                         .whereEqualTo("clubId", userClub ?: "")
                         .get()
                         .await()
                     myEventsCount = eventsSnapshot.size()
 
-                    // Count user's lost items
                     val lostItemsSnapshot = firestore.collection("lost_items")
                         .whereEqualTo("userId", currentUser.uid)
                         .get()
@@ -64,7 +69,7 @@ fun ProfileScreen(navController: NavController) {
                     myLostItemsCount = lostItemsSnapshot.size()
                 }
                 isLoading = false
-            } catch (e: Exception) {
+            } catch (_: Exception) {
                 isLoading = false
             }
         }
@@ -120,12 +125,10 @@ fun ProfileScreen(navController: NavController) {
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    // Profile Header
                     item {
                         ProfileHeader(user = user!!)
                     }
 
-                    // Stats Cards
                     item {
                         StatsRow(
                             eventsCount = myEventsCount,
@@ -133,12 +136,10 @@ fun ProfileScreen(navController: NavController) {
                         )
                     }
 
-                    // User Info Card
                     item {
                         UserInfoCard(user = user!!, userClub = userClub)
                     }
 
-                    // Role-Based Actions
                     if (userRole == "admin") {
                         item {
                             AdminActions(navController)
@@ -151,7 +152,6 @@ fun ProfileScreen(navController: NavController) {
                         }
                     }
 
-                    // My Posts Section
                     item {
                         Text(
                             text = "My Content",
@@ -167,7 +167,6 @@ fun ProfileScreen(navController: NavController) {
                         )
                     }
 
-                    // Settings Section
                     item {
                         Text(
                             text = "Settings",
@@ -198,7 +197,6 @@ fun ProfileHeader(user: User) {
                 .padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Profile Image
             Surface(
                 modifier = Modifier.size(100.dp),
                 shape = CircleShape,
@@ -224,14 +222,12 @@ fun ProfileHeader(user: User) {
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // User Name
             Text(
                 text = user.name,
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold
             )
 
-            // User Email
             Text(
                 text = user.email,
                 style = MaterialTheme.typography.bodyMedium,
@@ -240,7 +236,6 @@ fun ProfileHeader(user: User) {
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Role Badge
             Surface(
                 shape = RoundedCornerShape(8.dp),
                 color = when (user.role) {
@@ -275,7 +270,7 @@ fun StatsRow(eventsCount: Int, lostItemsCount: Int) {
             title = "Events",
             value = eventsCount.toString(),
             modifier = Modifier.weight(1f),
-            icon = Icons.Default.Event
+            icon = Icons.Default.DateRange
         )
         StatsCard(
             title = "Lost Items",
@@ -330,9 +325,9 @@ fun UserInfoCard(user: User, userClub: String?) {
         if (userClub != null) {
             scope.launch {
                 try {
-                    val clubDoc = firestore.collection("clubs").document(userClub!!).get().await()
+                    val clubDoc = firestore.collection("clubs").document(userClub).get().await()
                     clubName = clubDoc.getString("name")
-                } catch (e: Exception) {
+                } catch (_: Exception) {
                     // Club not found
                 }
             }
@@ -362,7 +357,7 @@ fun UserInfoCard(user: User, userClub: String?) {
                 value = user.name
             )
 
-            Divider(modifier = Modifier.padding(vertical = 8.dp))
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
             InfoRow(
                 label = "Email Address",
@@ -370,7 +365,7 @@ fun UserInfoCard(user: User, userClub: String?) {
             )
 
             if (clubName != null) {
-                Divider(modifier = Modifier.padding(vertical = 8.dp))
+                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
                 InfoRow(
                     label = "Club Membership",
@@ -378,11 +373,11 @@ fun UserInfoCard(user: User, userClub: String?) {
                 )
             }
 
-            Divider(modifier = Modifier.padding(vertical = 8.dp))
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
             InfoRow(
                 label = "Member Since",
-                value = java.text.SimpleDateFormat("MMMM dd, yyyy", java.util.Locale.getDefault())
+                value = SimpleDateFormat("MMMM dd, yyyy", Locale.getDefault())
                     .format(user.createdAt)
             )
         }
@@ -504,12 +499,12 @@ fun MyPostsCard(
                 .padding(8.dp)
         ) {
             SettingsItem(
-                icon = Icons.Default.Event,
+                icon = Icons.Default.DateRange,
                 title = "My Events",
                 onClick = onMyEventsClick
             )
 
-            Divider()
+            HorizontalDivider()
 
             SettingsItem(
                 icon = Icons.Default.Search,
@@ -538,7 +533,7 @@ fun SettingsCard(navController: NavController) {
                 onClick = { navController.navigate("notifications") }
             )
 
-            Divider()
+            HorizontalDivider()
 
             SettingsItem(
                 icon = Icons.Default.Lock,
@@ -546,7 +541,7 @@ fun SettingsCard(navController: NavController) {
                 onClick = { /* Show privacy policy */ }
             )
 
-            Divider()
+            HorizontalDivider()
 
             SettingsItem(
                 icon = Icons.Default.Info,
@@ -604,7 +599,6 @@ fun EditProfileScreen(navController: NavController) {
     val auth = FirebaseAuth.getInstance()
     val currentUser = auth.currentUser
 
-    // Load current user data
     LaunchedEffect(Unit) {
         scope.launch {
             if (currentUser != null) {
@@ -615,7 +609,6 @@ fun EditProfileScreen(navController: NavController) {
         }
     }
 
-    // Image picker
     val imagePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
@@ -630,7 +623,6 @@ fun EditProfileScreen(navController: NavController) {
             try {
                 var newImageUrl = profileImageUrl
 
-                // Upload new image if selected
                 selectedImageUri?.let { uri ->
                     val storageRef = storage.reference
                     val imageRef = storageRef.child("profile_images/${currentUser.uid}.jpg")
@@ -642,22 +634,20 @@ fun EditProfileScreen(navController: NavController) {
                     }
                 }
 
-                // Update Firestore
                 val updates = mapOf(
                     "name" to name,
                     "profileImageUrl" to (newImageUrl ?: "")
                 )
                 firestore.collection("users").document(currentUser.uid).update(updates).await()
 
-                // Update Auth display name
-                val userProfile = com.google.firebase.auth.UserProfileChangeRequest.Builder()
+                val userProfile = UserProfileChangeRequest.Builder()
                     .setDisplayName(name)
                     .build()
                 currentUser.updateProfile(userProfile).await()
 
                 isLoading = false
                 navController.navigateUp()
-            } catch (e: Exception) {
+            } catch (_: Exception) {
                 isLoading = false
             }
         }
@@ -669,7 +659,7 @@ fun EditProfileScreen(navController: NavController) {
                 title = { Text("Edit Profile") },
                 navigationIcon = {
                     IconButton(onClick = { navController.navigateUp() }) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -698,7 +688,6 @@ fun EditProfileScreen(navController: NavController) {
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             item {
-                // Profile Image
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -723,7 +712,7 @@ fun EditProfileScreen(navController: NavController) {
                                             contentScale = ContentScale.Crop
                                         )
                                     }
-                                    profileImageUrl != null && profileImageUrl!!.isNotEmpty() -> {
+                                    !profileImageUrl.isNullOrEmpty() -> {
                                         AsyncImage(
                                             model = profileImageUrl,
                                             contentDescription = "Profile picture",
@@ -774,7 +763,3 @@ fun EditProfileScreen(navController: NavController) {
         }
     }
 }
-
-// Add missing imports
-import androidx.compose.material.icons.filled.*
-import androidx.compose.foundation.clickable
