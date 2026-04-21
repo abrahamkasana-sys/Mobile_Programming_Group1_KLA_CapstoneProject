@@ -6,7 +6,6 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -16,7 +15,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -31,10 +29,12 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import java.text.SimpleDateFormat
 import java.util.*
+import androidx.compose.material.icons.automirrored.filled.ExitToApp
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ProfileScreen(navController: NavController) {
+fun ProfileScreen(navController: NavController,  onLogout: () -> Unit = {} ) {
     var user by remember { mutableStateOf<User?>(null) }
     var isLoading by remember { mutableStateOf(true) }
     var userRole by remember { mutableStateOf("student") }
@@ -87,10 +87,9 @@ fun ProfileScreen(navController: NavController) {
                         Icon(Icons.Default.Edit, contentDescription = "Edit Profile")
                     }
                     IconButton(onClick = {
-                        auth.signOut()
-                        navController.navigate("login")
+                        onLogout()
                     }) {
-                        Icon(Icons.Default.Logout, contentDescription = "Logout")
+                        Icon(Icons.AutoMirrored.Filled.ExitToApp, contentDescription = "Logout")
                     }
                 }
             )
@@ -431,7 +430,7 @@ fun AdminActions(navController: NavController) {
                     containerColor = MaterialTheme.colorScheme.error
                 )
             ) {
-                Icon(Icons.Default.AdminPanelSettings, contentDescription = null)
+                Icon(Icons.Default.Settings, contentDescription = null)  // Changed from AdminPanelSettings to Settings
                 Spacer(modifier = Modifier.width(8.dp))
                 Text("Admin Dashboard")
             }
@@ -461,7 +460,7 @@ fun ClubLeaderActions(navController: NavController) {
             Spacer(modifier = Modifier.height(12.dp))
 
             OutlinedButton(
-                onClick = { /* Navigate to create event */ },
+                onClick = { navController.navigate("create_event") },
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Icon(Icons.Default.Add, contentDescription = null)
@@ -472,7 +471,7 @@ fun ClubLeaderActions(navController: NavController) {
             Spacer(modifier = Modifier.height(8.dp))
 
             OutlinedButton(
-                onClick = { /* Navigate to manage club */ },
+                onClick =  { navController.navigate("manage_club") },
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Icon(Icons.Default.Settings, contentDescription = null)
@@ -577,11 +576,7 @@ fun SettingsItem(
             style = MaterialTheme.typography.bodyLarge,
             modifier = Modifier.weight(1f)
         )
-        Icon(
-            imageVector = Icons.Default.ChevronRight,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null)
     }
 }
 

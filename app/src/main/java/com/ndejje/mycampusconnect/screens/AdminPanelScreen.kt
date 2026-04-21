@@ -1,10 +1,12 @@
 package com.ndejje.mycampusconnect.screens
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -21,14 +23,11 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import java.text.SimpleDateFormat
 import java.util.*
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.Menu
-import androidx.compose.ui.platform.LocalContext
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AdminPanelScreen(navController: NavController) {
-    var selectedTab by remember { mutableStateOf(0) }
+    var selectedTab by remember { mutableIntStateOf(0) }
     var currentUserRole by remember { mutableStateOf("") }
     var isAuthorized by remember { mutableStateOf(false) }
 
@@ -37,7 +36,6 @@ fun AdminPanelScreen(navController: NavController) {
     val auth = FirebaseAuth.getInstance()
     val currentUserId = auth.currentUser?.uid
 
-    // Check if user is admin
     LaunchedEffect(Unit) {
         scope.launch {
             if (currentUserId != null) {
@@ -54,7 +52,7 @@ fun AdminPanelScreen(navController: NavController) {
                 title = { Text("Admin Panel") },
                 navigationIcon = {
                     IconButton(onClick = { navController.navigateUp() }) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -101,7 +99,6 @@ fun AdminPanelScreen(navController: NavController) {
                         .fillMaxSize()
                         .padding(paddingValues)
                 ) {
-                    // Admin Tabs
                     TabRow(selectedTabIndex = selectedTab) {
                         Tab(
                             selected = selectedTab == 0,
@@ -125,7 +122,6 @@ fun AdminPanelScreen(navController: NavController) {
                         )
                     }
 
-                    // Tab Content
                     when (selectedTab) {
                         0 -> AnnouncementsManagement()
                         1 -> UsersManagement()
@@ -147,8 +143,6 @@ fun AnnouncementsManagement() {
 
     val scope = rememberCoroutineScope()
     val firestore = FirebaseFirestore.getInstance()
-    val auth = FirebaseAuth.getInstance()
-    val currentUser = auth.currentUser
 
     fun loadAnnouncements() {
         scope.launch {
@@ -162,7 +156,7 @@ fun AnnouncementsManagement() {
                     doc.toObject(Announcement::class.java)?.copy(announcementId = doc.id)
                 }
                 isLoading = false
-            } catch (e: Exception) {
+            } catch (_: Exception) {
                 isLoading = false
             }
         }
@@ -175,7 +169,6 @@ fun AnnouncementsManagement() {
     Column(
         modifier = Modifier.fillMaxSize()
     ) {
-        // Header with create button
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -244,7 +237,6 @@ fun AnnouncementsManagement() {
         }
     }
 
-    // Create Announcement Dialog
     if (showCreateDialog) {
         CreateAnnouncementDialog(
             onDismiss = { showCreateDialog = false },
@@ -288,7 +280,6 @@ fun AnnouncementAdminCard(
                     )
                 }
 
-                // Target role badge
                 Surface(
                     shape = RoundedCornerShape(8.dp),
                     color = when (announcement.targetRole) {
@@ -362,7 +353,6 @@ fun CreateAnnouncementDialog(
             isCreating = true
 
             try {
-                // Get user name
                 val userDoc = firestore.collection("users").document(currentUser.uid).get().await()
                 val userName = userDoc.getString("name") ?: currentUser.email ?: "Admin"
 
@@ -379,7 +369,7 @@ fun CreateAnnouncementDialog(
                 firestore.collection("announcements").add(announcement).await()
                 isCreating = false
                 onCreated()
-            } catch (e: Exception) {
+            } catch (_: Exception) {
                 isCreating = false
             }
         }
@@ -475,7 +465,7 @@ fun UsersManagement() {
                     doc.toObject(User::class.java)?.copy(userId = doc.id)
                 }
                 isLoading = false
-            } catch (e: Exception) {
+            } catch (_: Exception) {
                 isLoading = false
             }
         }
@@ -527,6 +517,7 @@ fun UsersManagement() {
 fun UserAdminCard(user: User) {
     var currentRole by remember { mutableStateOf(user.role) }
     var isUpdating by remember { mutableStateOf(false) }
+    var expanded by remember { mutableStateOf(false) }
 
     val scope = rememberCoroutineScope()
     val firestore = FirebaseFirestore.getInstance()
@@ -540,7 +531,8 @@ fun UserAdminCard(user: User) {
                     .await()
                 currentRole = newRole
                 isUpdating = false
-            } catch (e: Exception) {
+                expanded = false
+            } catch (_: Exception) {
                 isUpdating = false
             }
         }
@@ -577,17 +569,31 @@ fun UserAdminCard(user: User) {
             if (isUpdating) {
                 CircularProgressIndicator(modifier = Modifier.size(24.dp))
             } else {
-                Menu(
-                    expanded = false,
-                    onDismissRequest = {},
-                    modifier = Modifier.wrapContentSize()
-                ) {
-                    // This is simplified - in production use a dropdown menu
+                // Role dropdown
+                Box {
                     OutlinedButton(
-                        onClick = { /* Show role options */ }
+                        onClick = { expanded = true }
                     ) {
                         Text(currentRole.uppercase())
                         Icon(Icons.Default.ArrowDropDown, contentDescription = null)
+                    }
+
+                    DropdownMenu(
+                        expanded = expanded,
+                        onDismissRequest = { expanded = false }
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("STUDENT") },
+                            onClick = { updateRole("student") }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("CLUB LEADER") },
+                            onClick = { updateRole("club_leader") }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("ADMIN") },
+                            onClick = { updateRole("admin") }
+                        )
                     }
                 }
             }
@@ -616,7 +622,7 @@ fun ClubsManagement() {
                     doc.toObject(Club::class.java)?.copy(clubId = doc.id)
                 }
                 isLoading = false
-            } catch (e: Exception) {
+            } catch (_: Exception) {
                 isLoading = false
             }
         }
@@ -772,7 +778,7 @@ fun CreateClubDialog(
                 firestore.collection("clubs").add(club).await()
                 isCreating = false
                 onCreated()
-            } catch (e: Exception) {
+            } catch (_: Exception) {
                 isCreating = false
             }
         }
@@ -833,10 +839,10 @@ fun CreateClubDialog(
 
 @Composable
 fun AdminDashboard() {
-    var totalUsers by remember { mutableStateOf(0) }
-    var totalClubs by remember { mutableStateOf(0) }
-    var totalEvents by remember { mutableStateOf(0) }
-    var totalLostItems by remember { mutableStateOf(0) }
+    var totalUsers by remember { mutableIntStateOf(0) }
+    var totalClubs by remember { mutableIntStateOf(0) }
+    var totalEvents by remember { mutableIntStateOf(0) }
+    var totalLostItems by remember { mutableIntStateOf(0) }
     var isLoading by remember { mutableStateOf(true) }
 
     val scope = rememberCoroutineScope()
@@ -855,7 +861,7 @@ fun AdminDashboard() {
                 totalEvents = eventsCount
                 totalLostItems = lostItemsCount
                 isLoading = false
-            } catch (e: Exception) {
+            } catch (_: Exception) {
                 isLoading = false
             }
         }
@@ -894,14 +900,14 @@ fun AdminDashboard() {
                 DashboardCard(
                     title = "Total Clubs",
                     value = totalClubs.toString(),
-                    icon = Icons.Default.People,
+                    icon = Icons.Default.Person,
                     color = MaterialTheme.colorScheme.secondary
                 )
 
                 DashboardCard(
                     title = "Total Events",
                     value = totalEvents.toString(),
-                    icon = Icons.Default.Event,
+                    icon = Icons.Default.DateRange,
                     color = MaterialTheme.colorScheme.tertiary
                 )
 

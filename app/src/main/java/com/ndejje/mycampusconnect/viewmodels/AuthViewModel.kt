@@ -11,7 +11,7 @@ import kotlinx.coroutines.launch
 class AuthViewModel : ViewModel() {
     private val authRepo = AuthRepository()
 
-    private val _currentUser = MutableStateFlow<User?>(authRepo.getCurrentUser())
+    private val _currentUser = MutableStateFlow<User?>(null)
     val currentUser: StateFlow<User?> = _currentUser
 
     private val _isLoading = MutableStateFlow(false)
@@ -24,16 +24,13 @@ class AuthViewModel : ViewModel() {
         viewModelScope.launch {
             _isLoading.value = true
             val result = authRepo.loginUser(email, password)
-            when (result) {
-                is Result.Success -> {
-                    _currentUser.value = result.getOrNull()
-                    _isLoading.value = false
-                    onSuccess()
-                }
-                is Result.Failure -> {
-                    _error.value = result.exceptionOrNull()?.message
-                    _isLoading.value = false
-                }
+            result.onSuccess { user ->
+                _currentUser.value = user
+                _isLoading.value = false
+                onSuccess()
+            }.onFailure { exception ->
+                _error.value = exception.message
+                _isLoading.value = false
             }
         }
     }
@@ -42,16 +39,13 @@ class AuthViewModel : ViewModel() {
         viewModelScope.launch {
             _isLoading.value = true
             val result = authRepo.registerUser(email, password, name)
-            when (result) {
-                is Result.Success -> {
-                    _currentUser.value = result.getOrNull()
-                    _isLoading.value = false
-                    onSuccess()
-                }
-                is Result.Failure -> {
-                    _error.value = result.exceptionOrNull()?.message
-                    _isLoading.value = false
-                }
+            result.onSuccess { user ->
+                _currentUser.value = user
+                _isLoading.value = false
+                onSuccess()
+            }.onFailure { exception ->
+                _error.value = exception.message
+                _isLoading.value = false
             }
         }
     }

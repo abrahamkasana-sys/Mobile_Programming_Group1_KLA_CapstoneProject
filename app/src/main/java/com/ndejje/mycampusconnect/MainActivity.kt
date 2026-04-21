@@ -3,17 +3,17 @@ package com.ndejje.mycampusconnect
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.ndejje.mycampusconnect.screens.*
 import com.ndejje.mycampusconnect.ui.theme.MyCampusConnectTheme
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.ndejje.mycampusconnect.viewmodels.AuthViewModel
 
 class MainActivity : ComponentActivity() {
@@ -32,7 +32,8 @@ fun CampusConnectApp() {
     val navController = rememberNavController()
     val authViewModel: AuthViewModel = viewModel()
     val currentUser by authViewModel.currentUser.collectAsState()
-    var isLoggedIn by remember { mutableStateOf(false) }
+
+    var isLoggedIn by remember { mutableStateOf(currentUser != null) }
 
     LaunchedEffect(currentUser) {
         isLoggedIn = currentUser != null
@@ -47,7 +48,6 @@ fun CampusConnectApp() {
             composable("splash") {
                 SplashScreen(
                     onTimeout = {
-                        isLoggedIn = checkIfLoggedIn()
                         navController.navigate(if (isLoggedIn) "home" else "login")
                     }
                 )
@@ -56,20 +56,18 @@ fun CampusConnectApp() {
             composable("login") {
                 LoginScreen(
                     onLoginSuccess = {
-                        isLoggedIn = true
                         navController.navigate("home")
                     },
-                    navController = navController  // ← ADD THIS
+                    navController = navController
                 )
             }
 
             composable("register") {
                 RegisterScreen(
                     onRegisterSuccess = {
-                        isLoggedIn = true
                         navController.navigate("home")
                     },
-                    navController = navController  // ← ADD THIS
+                    navController = navController
                 )
             }
 
@@ -79,7 +77,15 @@ fun CampusConnectApp() {
             composable("clubs") { ClubsScreen(navController) }
             composable("lost_and_found") { LostAndFoundScreen(navController) }
             composable("notifications") { NotificationsScreen(navController) }
-            composable("profile") { ProfileScreen(navController) }
+            composable("profile") {
+                ProfileScreen(
+                    navController = navController,
+                    onLogout = {
+                        authViewModel.logout()
+                        navController.navigate("login")
+                    }
+                )
+            }
 
             // Detail Screens
             composable("event_detail/{eventId}") { backStackEntry ->
@@ -101,8 +107,4 @@ fun CampusConnectApp() {
             composable("admin_panel") { AdminPanelScreen(navController) }
         }
     }
-}
-
-fun checkIfLoggedIn(): Boolean {
-    return com.google.firebase.auth.FirebaseAuth.getInstance().currentUser != null
 }

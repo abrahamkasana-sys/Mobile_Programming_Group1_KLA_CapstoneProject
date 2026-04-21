@@ -9,22 +9,26 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
-import kotlinx.coroutines.launch
-import com.ndejje.mycampusconnect.repository.AuthRepository
+import com.ndejje.mycampusconnect.viewmodels.AuthViewModel
 
 @Composable
 fun LoginScreen(
     onLoginSuccess: () -> Unit,
     navController: NavController
 ) {
+    val authViewModel: AuthViewModel = viewModel()
+
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
-    var isLoading by remember { mutableStateOf(false) }
-    var errorMessage by remember { mutableStateOf<String?>(null) }
 
-    val authRepo = remember { AuthRepository() }
-    val scope = rememberCoroutineScope()
+    val isLoading by authViewModel.isLoading.collectAsState()
+    val error by authViewModel.error.collectAsState()
+
+    LaunchedEffect(Unit) {
+        authViewModel.clearError()
+    }
 
     Column(
         modifier = Modifier
@@ -59,15 +63,8 @@ fun LoginScreen(
 
         Button(
             onClick = {
-                scope.launch {
-                    isLoading = true
-                    val result = authRepo.loginUser(email, password)
-                    isLoading = false
-                    result.onSuccess {
-                        onLoginSuccess()
-                    }.onFailure {
-                        errorMessage = it.message
-                    }
+                authViewModel.login(email, password) {
+                    onLoginSuccess()
                 }
             },
             modifier = Modifier.fillMaxWidth(),
@@ -81,7 +78,7 @@ fun LoginScreen(
             Text("Don't have an account? Register")
         }
 
-        errorMessage?.let {
+        error?.let {
             Spacer(modifier = Modifier.height(16.dp))
             Text(it, color = MaterialTheme.colorScheme.error)
         }
@@ -93,15 +90,20 @@ fun RegisterScreen(
     onRegisterSuccess: () -> Unit,
     navController: NavController
 ) {
+    val authViewModel: AuthViewModel = viewModel()
+
     var name by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var confirmPassword by remember { mutableStateOf("") }
-    var isLoading by remember { mutableStateOf(false) }
-    var errorMessage by remember { mutableStateOf<String?>(null) }
+    var localError by remember { mutableStateOf<String?>(null) }
 
-    val authRepo = remember { AuthRepository() }
-    val scope = rememberCoroutineScope()
+    val isLoading by authViewModel.isLoading.collectAsState()
+    val error by authViewModel.error.collectAsState()
+
+    LaunchedEffect(Unit) {
+        authViewModel.clearError()
+    }
 
     Column(
         modifier = Modifier
@@ -155,18 +157,12 @@ fun RegisterScreen(
         Button(
             onClick = {
                 if (password != confirmPassword) {
-                    errorMessage = "Passwords don't match"
+                    localError = "Passwords don't match"
                     return@Button
                 }
-                scope.launch {
-                    isLoading = true
-                    val result = authRepo.registerUser(email, password, name)
-                    isLoading = false
-                    result.onSuccess {
-                        onRegisterSuccess()
-                    }.onFailure {
-                        errorMessage = it.message
-                    }
+                localError = null
+                authViewModel.register(email, password, name) {
+                    onRegisterSuccess()
                 }
             },
             modifier = Modifier.fillMaxWidth(),
@@ -180,7 +176,12 @@ fun RegisterScreen(
             Text("Already have an account? Login")
         }
 
-        errorMessage?.let {
+        localError?.let {
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(it, color = MaterialTheme.colorScheme.error)
+        }
+
+        error?.let {
             Spacer(modifier = Modifier.height(16.dp))
             Text(it, color = MaterialTheme.colorScheme.error)
         }
