@@ -1,95 +1,111 @@
 package com.ndejje.mycampusconnect.screens
 
-import android.net.Uri
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
+import android.widget.Toast
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
-import coil.compose.AsyncImage
 import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.auth.UserProfileChangeRequest
 import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.storage.FirebaseStorage
-import com.ndejje.mycampusconnect.models.User
+import com.ndejje.mycampusconnect.models.Club
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
-import java.text.SimpleDateFormat
-import java.util.*
-import androidx.compose.material.icons.automirrored.filled.ExitToApp
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ProfileScreen(navController: NavController,  onLogout: () -> Unit = {} ) {
-    var user by remember { mutableStateOf<User?>(null) }
-    var isLoading by remember { mutableStateOf(true) }
-    var userRole by remember { mutableStateOf("student") }
-    var userClub by remember { mutableStateOf<String?>(null) }
-    var myEventsCount by remember { mutableIntStateOf(0) }
-    var myLostItemsCount by remember { mutableIntStateOf(0) }
-
+fun ProfileScreen(
+    navController: NavController,
+    onLogout: () -> Unit
+) {
+    val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val firestore = FirebaseFirestore.getInstance()
     val auth = FirebaseAuth.getInstance()
     val currentUser = auth.currentUser
 
-    LaunchedEffect(Unit) {
-        scope.launch {
-            try {
-                if (currentUser != null) {
-                    val userDoc = firestore.collection("users").document(currentUser.uid).get().await()
-                    user = userDoc.toObject(User::class.java)
-                    userRole = user?.role ?: "student"
-                    userClub = user?.clubId
+    // User data states
+    var userName by remember { mutableStateOf("") }
+    var userEmail by remember { mutableStateOf("") }
+    var userRole by remember { mutableStateOf("student") }
+    var userClubs by remember { mutableStateOf<List<Club>>(emptyList()) }
+    var isLoading by remember { mutableStateOf(true) }
 
-                    val eventsSnapshot = firestore.collection("events")
-                        .whereEqualTo("clubId", userClub ?: "")
-                        .get()
-                        .await()
-                    myEventsCount = eventsSnapshot.size()
+    // Load user data and their clubs
+    suspend fun loadUserData() {
+        try {
+            val userId = currentUser?.uid ?: return
 
-                    val lostItemsSnapshot = firestore.collection("lost_items")
-                        .whereEqualTo("userId", currentUser.uid)
-                        .get()
-                        .await()
-                    myLostItemsCount = lostItemsSnapshot.size()
+            // Get user document
+            val userDoc = firestore.collection("users").document(userId).get().await()
+            userName = userDoc.getString("name") ?: currentUser.displayName ?: "User"
+            userEmail = currentUser.email ?: ""
+            userRole = userDoc.getString("role") ?: "student"
+
+            @Suppress("UNCHECKED_CAST")
+            val userClubIds = (userDoc.get("clubIds") as? List<String>) ?: emptyList()
+
+            // Load club details for each club ID
+            if (userClubIds.isNotEmpty()) {
+                val clubsList = mutableListOf<Club>()
+                for (clubId in userClubIds) {
+                    val clubDoc = firestore.collection("clubs").document(clubId).get().await()
+                    val club = clubDoc.toObject(Club::class.java)?.copy(clubId = clubDoc.id)
+                    club?.let { clubsList.add(it) }
                 }
-                isLoading = false
-            } catch (_: Exception) {
-                isLoading = false
+                userClubs = clubsList
             }
+
+            isLoading = false
+        } catch (e: Exception) {
+            Toast.makeText(context, "Error loading profile: ${e.message}", Toast.LENGTH_SHORT).show()
+            isLoading = false
+        }
+    }
+
+    // Load data on startup
+    LaunchedEffect(Unit) {
+        loadUserData()
+    }
+
+    // Get display category name
+    fun getDisplayCategory(category: String): String {
+        return when (category) {
+            "COMMUNITY_SERVICE" -> "Community Service"
+            "LEADERSHIP" -> "Leadership"
+            "CULTURAL" -> "Cultural"
+            "RELIGIOUS" -> "Religious"
+            "PROFESSIONAL" -> "Professional"
+            "SPORTS" -> "Sports"
+            "SPECIAL_INTEREST" -> "Special Interest"
+            else -> category
         }
     }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Profile") },
+                title = { Text("My Profile") },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.primaryContainer
                 ),
                 actions = {
                     IconButton(onClick = { navController.navigate("edit_profile") }) {
                         Icon(Icons.Default.Edit, contentDescription = "Edit Profile")
-                    }
-                    IconButton(onClick = {
-                        onLogout()
-                    }) {
-                        Icon(Icons.AutoMirrored.Filled.ExitToApp, contentDescription = "Logout")
                     }
                 }
             )
@@ -106,16 +122,6 @@ fun ProfileScreen(navController: NavController,  onLogout: () -> Unit = {} ) {
                     CircularProgressIndicator()
                 }
             }
-            user == null -> {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(paddingValues),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text("User not found")
-                }
-            }
             else -> {
                 LazyColumn(
                     modifier = Modifier
@@ -124,636 +130,236 @@ fun ProfileScreen(navController: NavController,  onLogout: () -> Unit = {} ) {
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
+                    // Profile Header Section
                     item {
-                        ProfileHeader(user = user!!)
-                    }
-
-                    item {
-                        StatsRow(
-                            eventsCount = myEventsCount,
-                            lostItemsCount = myLostItemsCount
-                        )
-                    }
-
-                    item {
-                        UserInfoCard(user = user!!, userClub = userClub)
-                    }
-
-                    if (userRole == "admin") {
-                        item {
-                            AdminActions(navController)
-                        }
-                    }
-
-                    if (userRole == "club_leader" && userClub != null) {
-                        item {
-                            ClubLeaderActions(navController)
-                        }
-                    }
-
-                    item {
-                        Text(
-                            text = "My Content",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-
-                    item {
-                        MyPostsCard(
-                            onMyEventsClick = { /* Navigate to my events */ },
-                            onMyLostItemsClick = { /* Navigate to my lost items */ }
-                        )
-                    }
-
-                    item {
-                        Text(
-                            text = "Settings",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-
-                    item {
-                        SettingsCard(navController)
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun ProfileHeader(user: User) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        elevation = CardDefaults.cardElevation(4.dp),
-        shape = RoundedCornerShape(12.dp)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Surface(
-                modifier = Modifier.size(100.dp),
-                shape = CircleShape,
-                color = MaterialTheme.colorScheme.primaryContainer
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    if (user.profileImageUrl != null) {
-                        AsyncImage(
-                            model = user.profileImageUrl,
-                            contentDescription = "Profile picture",
-                            modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Crop
-                        )
-                    } else {
-                        Text(
-                            text = user.name.take(2).uppercase(),
-                            style = MaterialTheme.typography.headlineLarge,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Text(
-                text = user.name,
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold
-            )
-
-            Text(
-                text = user.email,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Surface(
-                shape = RoundedCornerShape(8.dp),
-                color = when (user.role) {
-                    "admin" -> MaterialTheme.colorScheme.errorContainer
-                    "club_leader" -> MaterialTheme.colorScheme.primaryContainer
-                    else -> MaterialTheme.colorScheme.secondaryContainer
-                }
-            ) {
-                Text(
-                    text = user.role.uppercase().replace("_", " "),
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
-                    style = MaterialTheme.typography.labelSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = when (user.role) {
-                        "admin" -> MaterialTheme.colorScheme.error
-                        "club_leader" -> MaterialTheme.colorScheme.primary
-                        else -> MaterialTheme.colorScheme.secondary
-                    }
-                )
-            }
-        }
-    }
-}
-
-@Composable
-fun StatsRow(eventsCount: Int, lostItemsCount: Int) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        StatsCard(
-            title = "Events",
-            value = eventsCount.toString(),
-            modifier = Modifier.weight(1f),
-            icon = Icons.Default.DateRange
-        )
-        StatsCard(
-            title = "Lost Items",
-            value = lostItemsCount.toString(),
-            modifier = Modifier.weight(1f),
-            icon = Icons.Default.Search
-        )
-    }
-}
-
-@Composable
-fun StatsCard(title: String, value: String, modifier: Modifier = Modifier, icon: androidx.compose.ui.graphics.vector.ImageVector) {
-    Card(
-        modifier = modifier,
-        elevation = CardDefaults.cardElevation(2.dp),
-        shape = RoundedCornerShape(12.dp)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                modifier = Modifier.size(32.dp),
-                tint = MaterialTheme.colorScheme.primary
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = value,
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold
-            )
-            Text(
-                text = title,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-    }
-}
-
-@Composable
-fun UserInfoCard(user: User, userClub: String?) {
-    var clubName by remember { mutableStateOf<String?>(null) }
-    val scope = rememberCoroutineScope()
-    val firestore = FirebaseFirestore.getInstance()
-
-    LaunchedEffect(userClub) {
-        if (userClub != null) {
-            scope.launch {
-                try {
-                    val clubDoc = firestore.collection("clubs").document(userClub).get().await()
-                    clubName = clubDoc.getString("name")
-                } catch (_: Exception) {
-                    // Club not found
-                }
-            }
-        }
-    }
-
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        elevation = CardDefaults.cardElevation(4.dp),
-        shape = RoundedCornerShape(12.dp)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp)
-        ) {
-            Text(
-                text = "Account Information",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            InfoRow(
-                label = "Full Name",
-                value = user.name
-            )
-
-            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-
-            InfoRow(
-                label = "Email Address",
-                value = user.email
-            )
-
-            if (clubName != null) {
-                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-
-                InfoRow(
-                    label = "Club Membership",
-                    value = clubName ?: "None"
-                )
-            }
-
-            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-
-            InfoRow(
-                label = "Member Since",
-                value = SimpleDateFormat("MMMM dd, yyyy", Locale.getDefault())
-                    .format(user.createdAt)
-            )
-        }
-    }
-}
-
-@Composable
-fun InfoRow(label: String, value: String) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Text(
-            text = value,
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.Medium
-        )
-    }
-}
-
-@Composable
-fun AdminActions(navController: NavController) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        elevation = CardDefaults.cardElevation(4.dp),
-        shape = RoundedCornerShape(12.dp)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp)
-        ) {
-            Text(
-                text = "Admin Controls",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.error
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            Button(
-                onClick = { navController.navigate("admin_panel") },
-                modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.error
-                )
-            ) {
-                Icon(Icons.Default.Settings, contentDescription = null)  // Changed from AdminPanelSettings to Settings
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Admin Dashboard")
-            }
-        }
-    }
-}
-
-@Composable
-fun ClubLeaderActions(navController: NavController) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        elevation = CardDefaults.cardElevation(4.dp),
-        shape = RoundedCornerShape(12.dp)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp)
-        ) {
-            Text(
-                text = "Club Leader Tools",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            OutlinedButton(
-                onClick = { navController.navigate("create_event") },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Icon(Icons.Default.Add, contentDescription = null)
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Create New Event")
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            OutlinedButton(
-                onClick =  { navController.navigate("manage_club") },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Icon(Icons.Default.Settings, contentDescription = null)
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Manage Club")
-            }
-        }
-    }
-}
-
-@Composable
-fun MyPostsCard(
-    onMyEventsClick: () -> Unit,
-    onMyLostItemsClick: () -> Unit
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        elevation = CardDefaults.cardElevation(2.dp),
-        shape = RoundedCornerShape(12.dp)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(8.dp)
-        ) {
-            SettingsItem(
-                icon = Icons.Default.DateRange,
-                title = "My Events",
-                onClick = onMyEventsClick
-            )
-
-            HorizontalDivider()
-
-            SettingsItem(
-                icon = Icons.Default.Search,
-                title = "My Lost & Found Posts",
-                onClick = onMyLostItemsClick
-            )
-        }
-    }
-}
-
-@Composable
-fun SettingsCard(navController: NavController) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        elevation = CardDefaults.cardElevation(2.dp),
-        shape = RoundedCornerShape(12.dp)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(8.dp)
-        ) {
-            SettingsItem(
-                icon = Icons.Default.Notifications,
-                title = "Notifications",
-                onClick = { navController.navigate("notifications") }
-            )
-
-            HorizontalDivider()
-
-            SettingsItem(
-                icon = Icons.Default.Lock,
-                title = "Privacy Policy",
-                onClick = { /* Show privacy policy */ }
-            )
-
-            HorizontalDivider()
-
-            SettingsItem(
-                icon = Icons.Default.Info,
-                title = "About",
-                onClick = { /* Show about */ }
-            )
-        }
-    }
-}
-
-@Composable
-fun SettingsItem(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    title: String,
-    onClick: () -> Unit
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { onClick() }
-            .padding(12.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            modifier = Modifier.size(24.dp),
-            tint = MaterialTheme.colorScheme.primary
-        )
-        Spacer(modifier = Modifier.width(16.dp))
-        Text(
-            text = title,
-            style = MaterialTheme.typography.bodyLarge,
-            modifier = Modifier.weight(1f)
-        )
-        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null)
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun EditProfileScreen(navController: NavController) {
-    var name by remember { mutableStateOf("") }
-    var isLoading by remember { mutableStateOf(false) }
-    var selectedImageUri by remember { mutableStateOf<Uri?>(null) }
-    var profileImageUrl by remember { mutableStateOf<String?>(null) }
-
-    val scope = rememberCoroutineScope()
-    val firestore = FirebaseFirestore.getInstance()
-    val storage = FirebaseStorage.getInstance()
-    val auth = FirebaseAuth.getInstance()
-    val currentUser = auth.currentUser
-
-    LaunchedEffect(Unit) {
-        scope.launch {
-            if (currentUser != null) {
-                val userDoc = firestore.collection("users").document(currentUser.uid).get().await()
-                name = userDoc.getString("name") ?: ""
-                profileImageUrl = userDoc.getString("profileImageUrl")
-            }
-        }
-    }
-
-    val imagePickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
-    ) { uri: Uri? ->
-        selectedImageUri = uri
-    }
-
-    fun updateProfile() {
-        scope.launch {
-            if (currentUser == null) return@launch
-            isLoading = true
-
-            try {
-                var newImageUrl = profileImageUrl
-
-                selectedImageUri?.let { uri ->
-                    val storageRef = storage.reference
-                    val imageRef = storageRef.child("profile_images/${currentUser.uid}.jpg")
-
-                    val inputStream = navController.context.contentResolver.openInputStream(uri)
-                    inputStream?.let {
-                        imageRef.putStream(it).await()
-                        newImageUrl = imageRef.downloadUrl.await().toString()
-                    }
-                }
-
-                val updates = mapOf(
-                    "name" to name,
-                    "profileImageUrl" to (newImageUrl ?: "")
-                )
-                firestore.collection("users").document(currentUser.uid).update(updates).await()
-
-                val userProfile = UserProfileChangeRequest.Builder()
-                    .setDisplayName(name)
-                    .build()
-                currentUser.updateProfile(userProfile).await()
-
-                isLoading = false
-                navController.navigateUp()
-            } catch (_: Exception) {
-                isLoading = false
-            }
-        }
-    }
-
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Edit Profile") },
-                navigationIcon = {
-                    IconButton(onClick = { navController.navigateUp() }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer
-                ),
-                actions = {
-                    TextButton(
-                        onClick = { updateProfile() },
-                        enabled = !isLoading && name.isNotBlank()
-                    ) {
-                        if (isLoading) {
-                            CircularProgressIndicator(modifier = Modifier.size(20.dp))
-                        } else {
-                            Text("Save")
-                        }
-                    }
-                }
-            )
-        }
-    ) { paddingValues ->
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues),
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            item {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(200.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Surface(
-                            modifier = Modifier
-                                .size(120.dp)
-                                .clickable { imagePickerLauncher.launch("image/*") },
-                            shape = CircleShape,
-                            color = MaterialTheme.colorScheme.primaryContainer
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            elevation = CardDefaults.cardElevation(4.dp),
+                            shape = RoundedCornerShape(16.dp)
                         ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                when {
-                                    selectedImageUri != null -> {
-                                        AsyncImage(
-                                            model = selectedImageUri,
-                                            contentDescription = "Selected profile picture",
-                                            modifier = Modifier.fillMaxSize(),
-                                            contentScale = ContentScale.Crop
-                                        )
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(24.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                // Profile Avatar with user initials
+                                Box(
+                                    modifier = Modifier
+                                        .size(100.dp)
+                                        .clip(CircleShape)
+                                        .background(MaterialTheme.colorScheme.primaryContainer),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = userName.take(2).uppercase(),
+                                        style = MaterialTheme.typography.headlineLarge,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+
+                                Spacer(modifier = Modifier.height(16.dp))
+
+                                Text(
+                                    text = userName,
+                                    style = MaterialTheme.typography.headlineSmall,
+                                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                                )
+
+                                Text(
+                                    text = userEmail,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+
+                                Spacer(modifier = Modifier.height(8.dp))
+
+                                Surface(
+                                    shape = RoundedCornerShape(16.dp),
+                                    color = if (userRole == "admin")
+                                        MaterialTheme.colorScheme.errorContainer
+                                    else
+                                        MaterialTheme.colorScheme.primaryContainer
+                                ) {
+                                    Text(
+                                        text = if (userRole == "admin") "Administrator" else "Student",
+                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = if (userRole == "admin")
+                                            MaterialTheme.colorScheme.error
+                                        else
+                                            MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    // Statistics Section
+                    item {
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            elevation = CardDefaults.cardElevation(4.dp),
+                            shape = RoundedCornerShape(16.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                                horizontalArrangement = Arrangement.SpaceEvenly
+                            ) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text(
+                                        text = "${userClubs.size}",
+                                        style = MaterialTheme.typography.headlineMedium,
+                                        fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                    Text("Clubs Joined", style = MaterialTheme.typography.bodySmall)
+                                }
+
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text(
+                                        text = "0",
+                                        style = MaterialTheme.typography.headlineMedium,
+                                        fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                    Text("Events Attended", style = MaterialTheme.typography.bodySmall)
+                                }
+                            }
+                        }
+                    }
+
+                    // My Clubs Section
+                    if (userClubs.isNotEmpty()) {
+                        item {
+                            Text(
+                                text = "My Clubs",
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                            )
+                        }
+
+                        items(userClubs) { club ->
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        navController.navigate("club_detail/${club.clubId}")
+                                    },
+                                elevation = CardDefaults.cardElevation(2.dp),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(16.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Surface(
+                                        shape = CircleShape,
+                                        color = MaterialTheme.colorScheme.primaryContainer,
+                                        modifier = Modifier.size(48.dp)
+                                    ) {
+                                        Box(contentAlignment = Alignment.Center) {
+                                            Text(
+                                                text = club.name.take(2).uppercase(),
+                                                style = MaterialTheme.typography.titleMedium,
+                                                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                                                color = MaterialTheme.colorScheme.primary
+                                            )
+                                        }
                                     }
-                                    !profileImageUrl.isNullOrEmpty() -> {
-                                        AsyncImage(
-                                            model = profileImageUrl,
-                                            contentDescription = "Profile picture",
-                                            modifier = Modifier.fillMaxSize(),
-                                            contentScale = ContentScale.Crop
-                                        )
-                                    }
-                                    else -> {
+
+                                    Spacer(modifier = Modifier.width(16.dp))
+
+                                    Column(modifier = Modifier.weight(1f)) {
                                         Text(
-                                            text = name.take(2).uppercase(),
-                                            style = MaterialTheme.typography.headlineLarge,
-                                            fontWeight = FontWeight.Bold
+                                            text = club.name,
+                                            style = MaterialTheme.typography.titleMedium,
+                                            fontWeight = androidx.compose.ui.text.font.FontWeight.Medium
                                         )
+                                        Text(
+                                            text = getDisplayCategory(club.category),
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.primary
+                                        )
+                                    }
+
+                                    Icon(
+                                        Icons.AutoMirrored.Filled.ArrowForward,
+                                        contentDescription = "View Club",
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        }
+
+                        item {
+                            TextButton(
+                                onClick = { navController.navigate("clubs") },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text("Browse More Clubs")
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, modifier = Modifier.size(16.dp))
+                            }
+                        }
+                    } else {
+                        item {
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                elevation = CardDefaults.cardElevation(2.dp),
+                                shape = RoundedCornerShape(12.dp),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = MaterialTheme.colorScheme.surfaceVariant
+                                )
+                            ) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(32.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    Icon(
+                                        Icons.Default.Person,
+                                        contentDescription = "No Clubs",
+                                        modifier = Modifier.size(48.dp),
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Text(
+                                        text = "You haven't joined any clubs yet",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    TextButton(
+                                        onClick = { navController.navigate("clubs") }
+                                    ) {
+                                        Text("Browse Clubs")
                                     }
                                 }
                             }
                         }
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = "Tap to change photo",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.primary
-                        )
+                    }
+
+                    // Logout Button
+                    item {
+                        Button(
+                            onClick = onLogout,
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.error,
+                                contentColor = MaterialTheme.colorScheme.onError
+                            ),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Text("Logout")
+                        }
                     }
                 }
-            }
-
-            item {
-                OutlinedTextField(
-                    value = name,
-                    onValueChange = { name = it },
-                    label = { Text("Full Name") },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true
-                )
-            }
-
-            item {
-                OutlinedTextField(
-                    value = currentUser?.email ?: "",
-                    onValueChange = {},
-                    label = { Text("Email") },
-                    modifier = Modifier.fillMaxWidth(),
-                    enabled = false,
-                    singleLine = true
-                )
             }
         }
     }
