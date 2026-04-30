@@ -105,6 +105,10 @@ fun CampusConnectApp() {
             composable("post_lost_item") { PostLostItemScreen(navController) }
             composable("edit_profile") { EditProfileScreen(navController) }
             composable("admin_panel") { AdminPanelScreen(navController) }
+            // Add this composable route
+            composable("setup_data") {
+                SetupDataScreen(navController)
+            }
         }
     }
 }
