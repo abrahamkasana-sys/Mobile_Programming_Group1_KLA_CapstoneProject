@@ -77,23 +77,131 @@ fun NotificationsScreen(navController: NavController) {
         scope.launch {
             isLoading = true
             try {
-                val userId = currentUser?.uid ?: return@launch
+                val userId = currentUser?.uid
+                if (userId == null) {
+                    isLoading = false
+                    return@launch
+                }
 
+                // Query all notifications for this user
                 val snapshot = firestore.collection("notifications")
                     .whereEqualTo("userId", userId)
                     .orderBy("createdAt", Query.Direction.DESCENDING)
-                    .limit(50)
                     .get()
                     .await()
 
                 notifications = snapshot.documents.mapNotNull { doc ->
-                    doc.toObject(NotificationItem::class.java)?.copy(notificationId = doc.id)
+                    val data = doc.data
+                    if (data != null) {
+                        NotificationItem(
+                            notificationId = doc.id,
+                            title = data["title"] as? String ?: "",
+                            message = data["message"] as? String ?: "",
+                            type = data["type"] as? String ?: "announcement",
+                            relatedId = data["relatedId"] as? String ?: "",
+                            read = data["read"] as? Boolean ?: false,
+                            createdAt = data["createdAt"] as? Long ?: System.currentTimeMillis(),
+                            userId = data["userId"] as? String ?: ""
+                        )
+                    } else null
                 }
 
                 isLoading = false
-            } catch (_: Exception) {
+            } catch (e: Exception) {
+                e.printStackTrace()
                 isLoading = false
             }
+        }
+    }
+
+    fun addSampleNotifications() {
+        scope.launch {
+            try {
+                val userId = currentUser?.uid
+                if (userId == null) {
+                    Toast.makeText(context, "Please log in first", Toast.LENGTH_SHORT).show()
+                    return@launch
+                }
+
+                val currentTime = System.currentTimeMillis()
+
+                // Sample notifications
+                val sampleNotifications = listOf(
+                    mapOf(
+                        "title" to "Welcome to CampusConnect!",
+                        "message" to "Thank you for joining. Stay updated with campus events!",
+                        "type" to "announcement",
+                        "read" to false,
+                        "createdAt" to currentTime,
+                        "userId" to userId
+                    ),
+                    mapOf(
+                        "title" to "Tech Career Fair",
+                        "message" to "Don't miss the Tech Career Fair this Friday!",
+                        "type" to "event",
+                        "read" to false,
+                        "createdAt" to currentTime - 86400000,
+                        "userId" to userId
+                    ),
+                    mapOf(
+                        "title" to "New Club Alert",
+                        "message" to "The Photography Club has been formed. Join today!",
+                        "type" to "club",
+                        "read" to false,
+                        "createdAt" to currentTime - 172800000,
+                        "userId" to userId
+                    ),
+                    mapOf(
+                        "title" to "Sports Tournament",
+                        "message" to "Register for the inter-faculty sports tournament!",
+                        "type" to "event",
+                        "read" to false,
+                        "createdAt" to currentTime - 259200000,
+                        "userId" to userId
+                    )
+                )
+
+                for (notification in sampleNotifications) {
+                    firestore.collection("notifications").add(notification).await()
+                }
+
+                Toast.makeText(context, "4 Sample notifications added!", Toast.LENGTH_SHORT).show()
+
+                // Reload notifications
+                loadNotifications()
+
+            } catch (e: Exception) {
+                Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
+    suspend fun markAsRead(notificationId: String) {
+        try {
+            firestore.collection("notifications")
+                .document(notificationId)
+                .update("read", true)
+                .await()
+
+            notifications = notifications.map {
+                if (it.notificationId == notificationId) it.copy(read = true) else it
+            }
+        } catch (e: Exception) {
+            // Silent fail
+        }
+    }
+
+    suspend fun deleteNotification(notificationId: String) {
+        try {
+            firestore.collection("notifications")
+                .document(notificationId)
+                .delete()
+                .await()
+
+            notifications = notifications.filter { it.notificationId != notificationId }
+            Toast.makeText(context, "Notification deleted", Toast.LENGTH_SHORT).show()
+        } catch (e: Exception) {
+            Toast.makeText(context, "Error deleting notification", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -110,85 +218,12 @@ fun NotificationsScreen(navController: NavController) {
 
             notifications = notifications.map { it.copy(read = true) }
             Toast.makeText(context, "All notifications marked as read", Toast.LENGTH_SHORT).show()
-        } catch (_: Exception) {
+        } catch (e: Exception) {
             Toast.makeText(context, "Error marking as read", Toast.LENGTH_SHORT).show()
         }
     }
 
-    suspend fun markAsRead(notificationId: String) {
-        try {
-            firestore.collection("notifications")
-                .document(notificationId)
-                .update("read", true)
-                .await()
-
-            notifications = notifications.map {
-                if (it.notificationId == notificationId) it.copy(read = true) else it
-            }
-        } catch (_: Exception) {
-            // Silent fail
-        }
-    }
-
-    suspend fun deleteNotification(notificationId: String) {
-        try {
-            firestore.collection("notifications")
-                .document(notificationId)
-                .delete()
-                .await()
-
-            notifications = notifications.filter { it.notificationId != notificationId }
-            Toast.makeText(context, "Notification deleted", Toast.LENGTH_SHORT).show()
-        } catch (_: Exception) {
-            Toast.makeText(context, "Error deleting notification", Toast.LENGTH_SHORT).show()
-        }
-    }
-
-    suspend fun addSampleNotifications() {
-        val userId = currentUser?.uid ?: return
-        val notificationsList = listOf(
-            mapOf(
-                "title" to "Welcome to CampusConnect!",
-                "message" to "Thank you for joining. Stay updated with campus events and announcements!",
-                "type" to "announcement",
-                "read" to false,
-                "createdAt" to System.currentTimeMillis(),
-                "userId" to userId
-            ),
-            mapOf(
-                "title" to "Tech Career Fair",
-                "message" to "Don't miss the Tech Career Fair this Friday at Business School Hall!",
-                "type" to "event",
-                "read" to false,
-                "createdAt" to System.currentTimeMillis() - 86400000,
-                "userId" to userId,
-                "relatedId" to ""
-            ),
-            mapOf(
-                "title" to "New Club: Photography Club",
-                "message" to "The Photography Club has been formed. Join to learn photography skills!",
-                "type" to "club",
-                "read" to false,
-                "createdAt" to System.currentTimeMillis() - 172800000,
-                "userId" to userId,
-                "relatedId" to ""
-            ),
-            mapOf(
-                "title" to "Sports Tournament",
-                "message" to "Register for the inter-faculty sports tournament. Prizes to be won!",
-                "type" to "event",
-                "read" to false,
-                "createdAt" to System.currentTimeMillis() - 259200000,
-                "userId" to userId,
-                "relatedId" to ""
-            )
-        )
-
-        for (notification in notificationsList) {
-            firestore.collection("notifications").add(notification).await()
-        }
-    }
-
+    // Load notifications on first load and when refreshTrigger changes
     LaunchedEffect(Unit, refreshTrigger) {
         loadNotifications()
     }
@@ -240,14 +275,9 @@ fun NotificationsScreen(navController: NavController) {
                     )
 
                     Row {
+                        // Add Sample Button
                         IconButton(
-                            onClick = {
-                                scope.launch {
-                                    addSampleNotifications()
-                                    loadNotifications()
-                                    Toast.makeText(context, "Sample notifications added!", Toast.LENGTH_SHORT).show()
-                                }
-                            }
+                            onClick = { addSampleNotifications() }
                         ) {
                             Icon(Icons.Default.Add, contentDescription = "Add Sample", tint = Color.White)
                         }
@@ -277,9 +307,7 @@ fun NotificationsScreen(navController: NavController) {
                         horizontalArrangement = Arrangement.SpaceEvenly,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text(
                                 text = "${notifications.size}",
                                 fontSize = 28.sp,
@@ -289,9 +317,7 @@ fun NotificationsScreen(navController: NavController) {
                             Text("Total", fontSize = 12.sp, color = Color.White.copy(alpha = 0.6f))
                         }
 
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text(
                                 text = "$unreadCount",
                                 fontSize = 28.sp,
@@ -388,11 +414,6 @@ fun NotificationsScreen(navController: NavController) {
                                         if (!notification.read) {
                                             scope.launch { markAsRead(notification.notificationId) }
                                         }
-                                        if (notification.type == "event" && notification.relatedId.isNotEmpty()) {
-                                            navController.navigate("event_detail/${notification.relatedId}")
-                                        } else if (notification.type == "club" && notification.relatedId.isNotEmpty()) {
-                                            navController.navigate("club_detail/${notification.relatedId}")
-                                        }
                                     }
                                 )
                             }
@@ -432,7 +453,6 @@ fun ModernNotificationCard(
         )
     ) {
         Box {
-            // Main content
             Row(
                 modifier = Modifier
                     .fillMaxWidth()

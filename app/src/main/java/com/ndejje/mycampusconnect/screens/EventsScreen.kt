@@ -1,20 +1,27 @@
 package com.ndejje.mycampusconnect.screens
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.DateRange
-import androidx.compose.material.icons.filled.LocationOn
-import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.google.firebase.firestore.FirebaseFirestore
 import com.ndejje.mycampusconnect.models.Event
@@ -52,62 +59,113 @@ fun EventsScreen(navController: NavController) {
     }
 
     Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Events") },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer
-                )
-            )
-        }
+        modifier = Modifier.fillMaxSize(),
+        containerColor = Color.Transparent
     ) { paddingValues ->
-        when {
-            isLoading -> {
-                Box(
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(
+                            Color(0xFF1A1A2E),
+                            Color(0xFF16213E),
+                            Color(0xFF0F3460)
+                        )
+                    )
+                )
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues)
+            ) {
+                // Custom Top Bar
+                Row(
                     modifier = Modifier
-                        .fillMaxSize()
-                        .padding(paddingValues),
-                    contentAlignment = Alignment.Center
+                        .fillMaxWidth()
+                        .padding(horizontal = 8.dp, vertical = 12.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    CircularProgressIndicator()
+                    IconButton(onClick = { navController.navigateUp() }) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
+                    }
+
+                    Text(
+                        text = "Events",
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
+
+                    Box(modifier = Modifier.size(48.dp))
                 }
-            }
-            errorMessage != null -> {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(paddingValues),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("Error: $errorMessage", color = MaterialTheme.colorScheme.error)
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Button(onClick = { /* Retry logic */ }) {
-                            Text("Retry")
+
+                when {
+                    isLoading -> {
+                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            CircularProgressIndicator(color = Color(0xFFE94560))
                         }
                     }
-                }
-            }
-            events.isEmpty() -> {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(paddingValues),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text("No events found")
-                }
-            }
-            else -> {
-                LazyColumn(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(paddingValues),
-                    contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    items(events) { event ->
-                        EventItemCard(event = event, navController = navController)
+                    errorMessage != null -> {
+                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Icon(Icons.Default.Warning, contentDescription = null, modifier = Modifier.size(64.dp), tint = Color.White.copy(alpha = 0.5f))
+                                Spacer(modifier = Modifier.height(16.dp))
+                                Text("Error: $errorMessage", color = Color.White.copy(alpha = 0.7f))
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Button(
+                                    onClick = {
+                                        scope.launch {
+                                            isLoading = true
+                                            errorMessage = null
+                                            val snapshot = firestore.collection("events")
+                                                .orderBy("date")
+                                                .get()
+                                                .await()
+                                            events = snapshot.documents.mapNotNull { doc ->
+                                                doc.toObject(Event::class.java)?.copy(eventId = doc.id)
+                                            }
+                                            isLoading = false
+                                        }
+                                    },
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE94560))
+                                ) {
+                                    Text("Retry")
+                                }
+                            }
+                        }
+                    }
+                    events.isEmpty() -> {
+                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text("📅", fontSize = 64.sp)
+                                Spacer(modifier = Modifier.height(16.dp))
+                                Text(
+                                    text = "No Events Found",
+                                    fontSize = 18.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = Color.White.copy(alpha = 0.7f)
+                                )
+                                Text(
+                                    text = "Check back later for upcoming events",
+                                    fontSize = 13.sp,
+                                    color = Color.White.copy(alpha = 0.5f)
+                                )
+                            }
+                        }
+                    }
+                    else -> {
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize(),
+                            contentPadding = PaddingValues(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            items(events) { event ->
+                                ModernEventCard(event = event, navController = navController)
+                            }
+                        }
                     }
                 }
             }
@@ -116,80 +174,129 @@ fun EventsScreen(navController: NavController) {
 }
 
 @Composable
-fun EventItemCard(event: Event, navController: NavController) {
+fun ModernEventCard(event: Event, navController: NavController) {
+    val calendar = Calendar.getInstance()
+    calendar.timeInMillis = event.date
+    val month = SimpleDateFormat("MMM", Locale.getDefault()).format(calendar.time).uppercase()
+    val day = SimpleDateFormat("dd", Locale.getDefault()).format(calendar.time)
+    val time = SimpleDateFormat("hh:mm a", Locale.getDefault()).format(calendar.time)
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .clickable {
                 navController.navigate("event_detail/${event.eventId}")
             },
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = Color.White.copy(alpha = 0.08f)
+        )
     ) {
-        Column(
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp)
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = event.title,
-                style = MaterialTheme.typography.titleLarge,
-                color = MaterialTheme.colorScheme.primary
-            )
-
-            Spacer(modifier = Modifier.height(4.dp))
-
-            Text(
-                text = event.description,
-                style = MaterialTheme.typography.bodyMedium,
-                maxLines = 2
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            // Date Badge
+            Surface(
+                shape = RoundedCornerShape(16.dp),
+                color = Color(0xFFE94560),
+                modifier = Modifier.size(70.dp)
             ) {
-                Icon(
-                    imageVector = Icons.Default.DateRange,
-                    contentDescription = "Date",
-                    modifier = Modifier.size(16.dp)
-                )
-                Text(
-                    text = SimpleDateFormat("MMM dd, yyyy • hh:mm a", Locale.getDefault())
-                        .format(event.date),
-                    style = MaterialTheme.typography.bodySmall
-                )
-            }
-
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.LocationOn,
-                    contentDescription = "Location",
-                    modifier = Modifier.size(16.dp)
-                )
-                Text(
-                    text = event.location,
-                    style = MaterialTheme.typography.bodySmall
-                )
-            }
-
-            if (event.clubName.isNotEmpty()) {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                Column(
+                    modifier = Modifier.fillMaxSize(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Person,  // Changed from People to Person
-                        contentDescription = "Club",
-                        modifier = Modifier.size(16.dp)
+                    Text(
+                        text = month,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White,
+                        letterSpacing = 0.5.sp
                     )
                     Text(
-                        text = "Hosted by: ${event.clubName}",
-                        style = MaterialTheme.typography.bodySmall
+                        text = day,
+                        fontSize = 28.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
                     )
                 }
             }
+
+            Spacer(modifier = Modifier.width(16.dp))
+
+            // Event Details
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = event.title,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color.White,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+
+                Text(
+                    text = event.description,
+                    fontSize = 13.sp,
+                    color = Color.White.copy(alpha = 0.6f),
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(top = 4.dp)
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // Time
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            Icons.Default.DateRange,
+                            contentDescription = "Time",
+                            modifier = Modifier.size(14.dp),
+                            tint = Color(0xFFE94560)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = time,
+                            fontSize = 11.sp,
+                            color = Color.White.copy(alpha = 0.5f)
+                        )
+                    }
+
+                    // Location
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            Icons.Default.LocationOn,
+                            contentDescription = "Location",
+                            modifier = Modifier.size(14.dp),
+                            tint = Color(0xFFE94560)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = event.location,
+                            fontSize = 11.sp,
+                            color = Color.White.copy(alpha = 0.5f),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+            }
+
+            // Arrow Icon
+            Icon(
+                Icons.AutoMirrored.Filled.ArrowForward,
+                contentDescription = "View",
+                tint = Color.White.copy(alpha = 0.3f),
+                modifier = Modifier.size(24.dp)
+            )
         }
     }
 }
@@ -216,101 +323,142 @@ fun EventDetailScreen(eventId: String, navController: NavController) {
     }
 
     Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Event Details") },
-                navigationIcon = {
-                    IconButton(onClick = { navController.navigateUp() }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer
-                )
-            )
-        }
+        modifier = Modifier.fillMaxSize(),
+        containerColor = Color.Transparent
     ) { paddingValues ->
-        when {
-            isLoading -> {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(paddingValues),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator()
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(
+                            Color(0xFF1A1A2E),
+                            Color(0xFF16213E),
+                            Color(0xFF0F3460)
+                        )
+                    )
+                )
+                .padding(paddingValues)
+        ) {
+            when {
+                isLoading -> {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(color = Color(0xFFE94560))
+                    }
                 }
-            }
-            event == null -> {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(paddingValues),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text("Event not found")
+                event == null -> {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(Icons.Default.Warning, contentDescription = null, modifier = Modifier.size(64.dp), tint = Color.White.copy(alpha = 0.5f))
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Text("Event not found", color = Color.White)
+                        }
+                    }
                 }
-            }
-            else -> {
-                LazyColumn(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(paddingValues),
-                    contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    item {
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            elevation = CardDefaults.cardElevation(4.dp)
-                        ) {
-                            Column(
+                else -> {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        item {
+                            IconButton(onClick = { navController.navigateUp() }) {
+                                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
+                            }
+                        }
+
+                        item {
+                            Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(16.dp)
+                                    .height(200.dp)
+                                    .clip(RoundedCornerShape(24.dp))
+                                    .background(
+                                        Brush.horizontalGradient(
+                                            colors = listOf(Color(0xFFE94560), Color(0xFFF5A623))
+                                        )
+                                    ),
+                                contentAlignment = Alignment.Center
                             ) {
-                                Text(
-                                    text = event!!.title,
-                                    style = MaterialTheme.typography.headlineSmall
-                                )
-
-                                Spacer(modifier = Modifier.height(16.dp))
-
-                                Text(
-                                    text = "Description",
-                                    style = MaterialTheme.typography.titleMedium
-                                )
-                                Text(
-                                    text = event!!.description,
-                                    style = MaterialTheme.typography.bodyLarge
-                                )
-
-                                Spacer(modifier = Modifier.height(16.dp))
-
-                                Text(
-                                    text = "Details",
-                                    style = MaterialTheme.typography.titleMedium
-                                )
-
-                                DetailRow(
-                                    icon = Icons.Default.DateRange,
-                                    label = "Date & Time",
-                                    value = SimpleDateFormat("MMMM dd, yyyy 'at' hh:mm a", Locale.getDefault())
-                                        .format(event!!.date)
-                                )
-
-                                DetailRow(
-                                    icon = Icons.Default.LocationOn,
-                                    label = "Location",
-                                    value = event!!.location
-                                )
-
-                                if (event!!.clubName.isNotEmpty()) {
-                                    DetailRow(
-                                        icon = Icons.Default.Person,  // Changed from People to Person
-                                        label = "Hosted by",
-                                        value = event!!.clubName
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text("📅", fontSize = 56.sp)
+                                    Text(
+                                        text = SimpleDateFormat("EEEE, MMMM d, yyyy", Locale.getDefault())
+                                            .format(event!!.date),
+                                        fontSize = 18.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color.White,
+                                        modifier = Modifier.padding(top = 8.dp)
                                     )
+                                    Text(
+                                        text = SimpleDateFormat("hh:mm a", Locale.getDefault())
+                                            .format(event!!.date),
+                                        fontSize = 14.sp,
+                                        color = Color.White.copy(alpha = 0.8f)
+                                    )
+                                }
+                            }
+                        }
+
+                        item {
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(20.dp),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = Color.White.copy(alpha = 0.1f)
+                                )
+                            ) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(20.dp)
+                                ) {
+                                    Text(
+                                        text = event!!.title,
+                                        fontSize = 24.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color.White
+                                    )
+
+                                    Spacer(modifier = Modifier.height(16.dp))
+
+                                    Text(
+                                        text = "About This Event",
+                                        fontSize = 16.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = Color(0xFFE94560)
+                                    )
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Text(
+                                        text = event!!.description,
+                                        fontSize = 14.sp,
+                                        color = Color.White.copy(alpha = 0.7f),
+                                        lineHeight = 20.sp
+                                    )
+
+                                    Spacer(modifier = Modifier.height(20.dp))
+
+                                    Text(
+                                        text = "Event Details",
+                                        fontSize = 16.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = Color(0xFFE94560)
+                                    )
+                                    Spacer(modifier = Modifier.height(12.dp))
+
+                                    DetailRow(
+                                        icon = Icons.Default.LocationOn,
+                                        label = "Location",
+                                        value = event!!.location
+                                    )
+
+                                    if (event!!.clubName.isNotEmpty()) {
+                                        DetailRow(
+                                            icon = Icons.Default.Person,
+                                            label = "Hosted by",
+                                            value = event!!.clubName
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -322,28 +470,37 @@ fun EventDetailScreen(eventId: String, navController: NavController) {
 }
 
 @Composable
-fun DetailRow(icon: ImageVector, label: String, value: String) {
+fun DetailRow(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, value: String) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            modifier = Modifier.size(20.dp),
-            tint = MaterialTheme.colorScheme.primary
-        )
-        Column {
+        Box(
+            modifier = Modifier
+                .size(36.dp)
+                .clip(CircleShape)
+                .background(Color(0xFFE94560).copy(alpha = 0.15f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                modifier = Modifier.size(18.dp),
+                tint = Color(0xFFE94560)
+            )
+        }
+        Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = label,
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                fontSize = 11.sp,
+                color = Color.White.copy(alpha = 0.5f)
             )
             Text(
                 text = value,
-                style = MaterialTheme.typography.bodyMedium
+                fontSize = 14.sp,
+                color = Color.White
             )
         }
     }
