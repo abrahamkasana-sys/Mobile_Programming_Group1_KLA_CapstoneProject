@@ -2,34 +2,46 @@ package com.ndejje.mycampusconnect.viewmodels
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.ndejje.mycampusconnect.models.User
-import com.ndejje.mycampusconnect.repository.AuthRepository
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 
 class AuthViewModel : ViewModel() {
-    private val authRepo = AuthRepository()
-
-    private val _currentUser = MutableStateFlow<User?>(null)
-    val currentUser: StateFlow<User?> = _currentUser
+    private val auth = FirebaseAuth.getInstance()
+    private val firestore = FirebaseFirestore.getInstance()
 
     private val _isLoading = MutableStateFlow(false)
-    val isLoading: StateFlow<Boolean> = _isLoading
+    val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
     private val _error = MutableStateFlow<String?>(null)
-    val error: StateFlow<String?> = _error
+    val error: StateFlow<String?> = _error.asStateFlow()
+
+    private val _isAuthenticated = MutableStateFlow(false)
+    val isAuthenticated: StateFlow<Boolean> = _isAuthenticated.asStateFlow()
+
+    init {
+        _isAuthenticated.value = auth.currentUser != null
+    }
+
+    fun clearError() {
+        _error.value = null
+    }
 
     fun login(email: String, password: String, onSuccess: () -> Unit) {
         viewModelScope.launch {
             _isLoading.value = true
-            val result = authRepo.loginUser(email, password)
-            result.onSuccess { user ->
-                _currentUser.value = user
+            _error.value = null
+            try {
+                auth.signInWithEmailAndPassword(email, password).await()
+                _isAuthenticated.value = true
                 _isLoading.value = false
                 onSuccess()
-            }.onFailure { exception ->
-                _error.value = exception.message
+            } catch (e: Exception) {
+                _error.value = e.message
                 _isLoading.value = false
             }
         }
@@ -38,24 +50,35 @@ class AuthViewModel : ViewModel() {
     fun register(email: String, password: String, name: String, onSuccess: () -> Unit) {
         viewModelScope.launch {
             _isLoading.value = true
-            val result = authRepo.registerUser(email, password, name)
-            result.onSuccess { user ->
-                _currentUser.value = user
+            _error.value = null
+            try {
+                val result = auth.createUserWithEmailAndPassword(email, password).await()
+                val userId = result.user?.uid ?: return@launch
+
+                val user = mapOf(
+                    "userId" to userId,
+                    "name" to name,
+                    "email" to email,
+                    "role" to "student",
+                    "clubIds" to emptyList<String>(),
+                    "createdAt" to System.currentTimeMillis()
+                )
+
+                firestore.collection("users").document(userId).set(user).await()
+                _isAuthenticated.value = true
                 _isLoading.value = false
                 onSuccess()
-            }.onFailure { exception ->
-                _error.value = exception.message
+            } catch (e: Exception) {
+                _error.value = e.message
                 _isLoading.value = false
             }
         }
     }
 
     fun logout() {
-        authRepo.logout()
-        _currentUser.value = null
+        auth.signOut()
+        _isAuthenticated.value = false
     }
 
-    fun clearError() {
-        _error.value = null
-    }
+    fun getCurrentUser() = auth.currentUser
 }

@@ -31,6 +31,7 @@ import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import java.util.*
+import android.widget.Toast
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -177,6 +178,21 @@ fun MainDashboardScreen(navController: NavController) {
                         }
 
                         Row {
+                            IconButton(
+                                onClick = {
+                                    scope.launch {
+                                        val userId = currentUser?.uid
+                                        if (userId != null) {
+                                            addSampleNotifications(userId)
+                                            Toast.makeText(context, "Sample notifications added!", Toast.LENGTH_SHORT).show()
+                                        }
+                                    }
+                                },
+                                modifier = Modifier
+                                    .background(Color.White.copy(alpha = 0.1f), CircleShape)
+                            ) {
+                                Icon(Icons.Default.Add, "Add Sample", tint = Color.White)
+                            }
                             IconButton(
                                 onClick = { navController.navigate("notifications") },
                                 modifier = Modifier.background(Color.White.copy(alpha = 0.1f), CircleShape)
@@ -598,5 +614,30 @@ fun MainDashboardScreen(navController: NavController) {
                 }
             }
         }
+    }
+}
+
+suspend fun addSampleNotifications(userId: String) {
+    val firestore = FirebaseFirestore.getInstance()
+    val notifications = listOf(
+        mapOf(
+            "title" to "Welcome to CampusConnect!",
+            "message" to "Thank you for joining. Stay updated with campus events!",
+            "type" to "announcement",
+            "read" to false,
+            "createdAt" to System.currentTimeMillis(),
+            "userId" to userId
+        ),
+        mapOf(
+            "title" to "Tech Career Fair",
+            "message" to "Don't miss the Tech Career Fair this Friday!",
+            "type" to "event",
+            "read" to false,
+            "createdAt" to System.currentTimeMillis() - 86400000,
+            "userId" to userId
+        )
+    )
+    for (notification in notifications) {
+        firestore.collection("notifications").add(notification).await()
     }
 }
