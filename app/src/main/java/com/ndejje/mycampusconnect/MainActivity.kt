@@ -114,6 +114,9 @@ fun CampusConnectApp() {
             composable("seed_data") {
                 SeedDataScreen(navController)
             }
+            composable("announcements") {
+                AnnouncementsScreen(navController)
+            }
         }
     }
 }

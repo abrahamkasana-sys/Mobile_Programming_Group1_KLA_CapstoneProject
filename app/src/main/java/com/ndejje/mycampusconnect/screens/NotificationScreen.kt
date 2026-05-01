@@ -275,13 +275,6 @@ fun NotificationsScreen(navController: NavController) {
                     )
 
                     Row {
-                        // Add Sample Button
-                        IconButton(
-                            onClick = { addSampleNotifications() }
-                        ) {
-                            Icon(Icons.Default.Add, contentDescription = "Add Sample", tint = Color.White)
-                        }
-
                         if (unreadCount > 0) {
                             TextButton(onClick = { scope.launch { markAllAsRead() } }) {
                                 Text("Mark all read", color = Color(0xFFE94560), fontSize = 12.sp)

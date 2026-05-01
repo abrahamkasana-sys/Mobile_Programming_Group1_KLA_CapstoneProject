@@ -1,6 +1,8 @@
 package com.ndejje.mycampusconnect.screens
 
 import androidx.compose.animation.core.*
+import com.ndejje.mycampusconnect.models.Club
+import com.google.firebase.firestore.Query
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -41,6 +43,8 @@ fun MainDashboardScreen(navController: NavController) {
     val firestore = FirebaseFirestore.getInstance()
     val auth = FirebaseAuth.getInstance()
     val currentUser = auth.currentUser
+    var popularClubs by remember { mutableStateOf<List<Club>>(emptyList()) }
+    var loadingClubs by remember { mutableStateOf(true) }
 
     var userName by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(true) }
@@ -86,6 +90,16 @@ fun MainDashboardScreen(navController: NavController) {
                 loadingEvents = false
                 isLoading = false
             }
+            val clubsSnapshot = firestore.collection("clubs")
+                .orderBy("memberCount", Query.Direction.DESCENDING)
+                .limit(5)
+                .get()
+                .await()
+
+            popularClubs = clubsSnapshot.documents.mapNotNull { doc ->
+                doc.toObject(Club::class.java)?.copy(clubId = doc.id)
+            }
+            loadingClubs = false
         }
     }
 
@@ -178,22 +192,7 @@ fun MainDashboardScreen(navController: NavController) {
                         }
 
                         Row {
-                            IconButton(
-                                onClick = {
-                                    scope.launch {
-                                        val userId = currentUser?.uid
-                                        if (userId != null) {
-                                            addSampleNotifications(userId)
-                                            Toast.makeText(context, "Sample notifications added!", Toast.LENGTH_SHORT).show()
-                                        }
-                                    }
-                                },
-                                modifier = Modifier
-                                    .background(Color.White.copy(alpha = 0.1f), CircleShape)
-                            ) {
-                                Icon(Icons.Default.Add, "Add Sample", tint = Color.White)
-                            }
-                            IconButton(
+                             IconButton(
                                 onClick = { navController.navigate("notifications") },
                                 modifier = Modifier.background(Color.White.copy(alpha = 0.1f), CircleShape)
                             ) {
@@ -497,15 +496,19 @@ fun MainDashboardScreen(navController: NavController) {
                             Spacer(modifier = Modifier.width(8.dp))
                             Text("Recent Announcements", fontSize = 18.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
                         }
+                        TextButton(onClick = { navController.navigate("announcements") }) {
+                            Text("See All", color = Color(0xFFE94560), fontSize = 12.sp)
+                        }
                     }
                 }
 
-                // Announcement 1
+// Announcement 1 - Make Clickable
                 item {
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 6.dp),
+                            .padding(horizontal = 16.dp, vertical = 6.dp)
+                            .clickable { navController.navigate("announcements") },
                         shape = RoundedCornerShape(16.dp),
                         colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.1f))
                     ) {
@@ -529,12 +532,13 @@ fun MainDashboardScreen(navController: NavController) {
                     }
                 }
 
-                // Announcement 2
+// Announcement 2 - Make Clickable
                 item {
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 6.dp),
+                            .padding(horizontal = 16.dp, vertical = 6.dp)
+                            .clickable { navController.navigate("announcements") },
                         shape = RoundedCornerShape(16.dp),
                         colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.1f))
                     ) {
@@ -558,6 +562,7 @@ fun MainDashboardScreen(navController: NavController) {
                     }
                 }
 
+
                 // Popular Clubs Section
                 item {
                     Row(
@@ -578,35 +583,85 @@ fun MainDashboardScreen(navController: NavController) {
                     }
                 }
 
-                // Clubs Row
-                item {
-                    LazyRow(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 8.dp),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        val clubsList = listOf(
-                            "Rotaract Club" to "🤝",
-                            "Student Guild" to "👥",
-                            "Football Club" to "⚽",
-                            "Tech Club" to "💻"
-                        )
-                        items(clubsList) { (name, emoji) ->
-                            Card(
+// Clubs Row - Now showing real clubs from Firestore
+                if (loadingClubs) {
+                    item {
+                        Box(modifier = Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
+                            CircularProgressIndicator(color = Color(0xFFE94560))
+                        }
+                    }
+                } else if (popularClubs.isEmpty()) {
+                    item {
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 6.dp),
+                            shape = RoundedCornerShape(16.dp),
+                            colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.05f))
+                        ) {
+                            Column(
                                 modifier = Modifier
-                                    .width(140.dp)
-                                    .clickable { navController.navigate("clubs") },
-                                shape = RoundedCornerShape(16.dp),
-                                colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.1f))
+                                    .fillMaxWidth()
+                                    .padding(32.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
                             ) {
-                                Column(
-                                    modifier = Modifier.fillMaxWidth().padding(16.dp),
-                                    horizontalAlignment = Alignment.CenterHorizontally
+                                Icon(Icons.Default.Person, null, modifier = Modifier.size(48.dp), tint = Color.White.copy(alpha = 0.3f))
+                                Spacer(modifier = Modifier.height(12.dp))
+                                Text("No clubs yet", fontSize = 14.sp, color = Color.White.copy(alpha = 0.5f))
+                            }
+                        }
+                    }
+                } else {
+                    item {
+                        LazyRow(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            items(popularClubs) { club ->
+                                Card(
+                                    modifier = Modifier
+                                        .width(140.dp)
+                                        .clickable { navController.navigate("club_detail/${club.clubId}") },
+                                    shape = RoundedCornerShape(16.dp),
+                                    colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.1f))
                                 ) {
-                                    Text(emoji, fontSize = 32.sp)
-                                    Spacer(modifier = Modifier.height(8.dp))
-                                    Text(name, fontSize = 12.sp, fontWeight = FontWeight.Medium, color = Color.White)
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(16.dp),
+                                        horizontalAlignment = Alignment.CenterHorizontally
+                                    ) {
+                                        // Club Icon based on category
+                                        val clubIcon = when (club.category) {
+                                            "COMMUNITY_SERVICE" -> "🤝"
+                                            "LEADERSHIP" -> "👥"
+                                            "CULTURAL" -> "🎭"
+                                            "RELIGIOUS" -> "⛪"
+                                            "PROFESSIONAL" -> "💼"
+                                            "SPORTS" -> "⚽"
+                                            "SPECIAL_INTEREST" -> "⭐"
+                                            else -> "🏛️"
+                                        }
+                                        Text(clubIcon, fontSize = 36.sp)
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                        Text(
+                                            text = club.name,
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.Medium,
+                                            color = Color.White,
+                                            maxLines = 2,
+                                            overflow = TextOverflow.Ellipsis,
+                                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                        )
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        Text(
+                                            text = "${club.memberCount} members",
+                                            fontSize = 10.sp,
+                                            color = Color.White.copy(alpha = 0.5f)
+                                        )
+                                    }
                                 }
                             }
                         }
