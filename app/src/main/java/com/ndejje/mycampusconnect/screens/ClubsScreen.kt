@@ -1,11 +1,13 @@
 package com.ndejje.mycampusconnect.screens
 
 import android.widget.Toast
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -15,8 +17,13 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
@@ -76,7 +83,6 @@ fun ClubsScreen(navController: NavController) {
                 userRole = userDoc.getString("role") ?: "student"
                 @Suppress("UNCHECKED_CAST")
                 userClubIds = (userDoc.get("clubIds") as? List<String>) ?: emptyList()
-                android.util.Log.d("ClubsScreen", "User club IDs: $userClubIds")
             }
 
             val snapshot = firestore.collection("clubs")
@@ -86,11 +92,9 @@ fun ClubsScreen(navController: NavController) {
             clubs = snapshot.documents.mapNotNull { doc ->
                 doc.toObject(Club::class.java)?.copy(clubId = doc.id)
             }
-            android.util.Log.d("ClubsScreen", "Loaded ${clubs.size} clubs")
             errorMessage = null
         } catch (e: Exception) {
             errorMessage = e.message ?: "Failed to load clubs"
-            android.util.Log.e("ClubsScreen", "Error loading clubs", e)
         }
     }
 
@@ -121,195 +125,254 @@ fun ClubsScreen(navController: NavController) {
     }
 
     Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Campus Clubs") },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer
-                ),
-                actions = {
-                    if (userRole == "admin") {
-                        IconButton(onClick = {
-                            navController.navigate("create_club")
-                        }) {
-                            Icon(Icons.Default.Add, contentDescription = "Create Club")
-                        }
-                    }
-                }
-            )
-        }
+        modifier = Modifier.fillMaxSize(),
+        containerColor = Color.Transparent
     ) { paddingValues ->
         Box(
             modifier = Modifier
                 .fillMaxSize()
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(
+                            Color(0xFF1A1A2E),
+                            Color(0xFF16213E),
+                            Color(0xFF0F3460)
+                        )
+                    )
+                )
                 .padding(paddingValues)
         ) {
-            when {
-                isLoading -> {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        CircularProgressIndicator()
-                    }
-                }
-                errorMessage != null -> {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text("Error: $errorMessage", color = MaterialTheme.colorScheme.error)
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Button(onClick = {
-                                scope.launch {
-                                    isLoading = true
-                                    errorMessage = null
-                                    loadData()
-                                    isLoading = false
-                                }
-                            }) {
-                                Text("Retry")
-                            }
-                        }
-                    }
-                }
-                else -> {
-                    Column(
-                        modifier = Modifier.fillMaxSize()
-                    ) {
-                        // Category Chips
-                        LazyRow(
+            Column(
+                modifier = Modifier.fillMaxSize()
+            ) {
+                // Custom Top Bar
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Campus Clubs",
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
+
+                    if (userRole == "admin") {
+                        IconButton(
+                            onClick = { navController.navigate("create_club") },
                             modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp, vertical = 8.dp),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                .background(Color.White.copy(alpha = 0.1f), CircleShape)
                         ) {
-                            items(clubCategories) { category ->
-                                FilterChip(
-                                    selected = selectedCategory == category,
-                                    onClick = { selectedCategory = category },
-                                    label = { Text(category) },
-                                    modifier = Modifier.clip(RoundedCornerShape(32.dp))
-                                )
+                            Icon(Icons.Default.Add, contentDescription = "Create Club", tint = Color.White)
+                        }
+                    }
+                }
+
+                // Search Bar
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = Color.White.copy(alpha = 0.1f)
+                    )
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Default.Search,
+                            contentDescription = "Search",
+                            tint = Color.White.copy(alpha = 0.6f)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+
+                        // Simple TextField instead of BasicTextField
+                        TextField(
+                            value = searchQuery,
+                            onValueChange = { searchQuery = it },
+                            modifier = Modifier.weight(1f),
+                            placeholder = { Text("Search clubs...", color = Color.White.copy(alpha = 0.4f)) },
+                            colors = TextFieldDefaults.colors(
+                                focusedTextColor = Color.White,
+                                unfocusedTextColor = Color.White,
+                                focusedContainerColor = Color.Transparent,
+                                unfocusedContainerColor = Color.Transparent,
+                                focusedIndicatorColor = Color.Transparent,
+                                unfocusedIndicatorColor = Color.Transparent
+                            ),
+                            singleLine = true
+                        )
+
+                        if (searchQuery.isNotEmpty()) {
+                            IconButton(onClick = { searchQuery = "" }) {
+                                Icon(Icons.Default.Close, contentDescription = "Clear", tint = Color.White.copy(alpha = 0.6f))
                             }
                         }
+                    }
+                }
 
-                        // Clubs List
-                        if (filteredClubs.isEmpty()) {
-                            Box(
-                                modifier = Modifier.fillMaxSize(),
-                                contentAlignment = Alignment.Center
+                when {
+                    isLoading -> {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            CircularProgressIndicator(color = Color(0xFFE94560))
+                        }
+                    }
+                    errorMessage != null -> {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Icon(Icons.Default.Warning, contentDescription = null, modifier = Modifier.size(64.dp), tint = Color.White.copy(alpha = 0.5f))
+                                Spacer(modifier = Modifier.height(16.dp))
+                                Text("Error: $errorMessage", color = Color.White.copy(alpha = 0.7f))
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Button(
+                                    onClick = {
+                                        scope.launch {
+                                            isLoading = true
+                                            errorMessage = null
+                                            loadData()
+                                            isLoading = false
+                                        }
+                                    },
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE94560))
+                                ) {
+                                    Text("Retry")
+                                }
+                            }
+                        }
+                    }
+                    else -> {
+                        Column(modifier = Modifier.fillMaxSize()) {
+                            // Category Chips
+                            LazyRow(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Icon(
-                                        Icons.Default.Search,
-                                        contentDescription = "No results",
-                                        modifier = Modifier.size(64.dp),
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                    Spacer(modifier = Modifier.height(16.dp))
-                                    Text(
-                                        text = "No clubs found",
-                                        style = MaterialTheme.typography.bodyLarge
+                                items(clubCategories) { category ->
+                                    FilterChip(
+                                        selected = selectedCategory == category,
+                                        onClick = { selectedCategory = category },
+                                        label = {
+                                            Text(
+                                                category,
+                                                fontSize = 13.sp,
+                                                color = if (selectedCategory == category) Color(0xFFE94560) else Color.White
+                                            )
+                                        },
+                                        colors = FilterChipDefaults.filterChipColors(
+                                            selectedContainerColor = Color.White.copy(alpha = 0.2f),
+                                            containerColor = Color.White.copy(alpha = 0.05f),
+                                            selectedLabelColor = Color(0xFFE94560),
+                                            labelColor = Color.White
+                                        )
                                     )
                                 }
                             }
-                        } else {
-                            LazyColumn(
-                                modifier = Modifier.fillMaxSize(),
-                                contentPadding = PaddingValues(16.dp),
-                                verticalArrangement = Arrangement.spacedBy(12.dp)
-                            ) {
-                                items(filteredClubs) { club ->
-                                    var isJoining by remember { mutableStateOf(false) }
 
-                                    ClubCard(
-                                        club = club,
-                                        isJoined = userClubIds.contains(club.clubId),
-                                        userRole = userRole,
-                                        navController = navController,
-                                        isJoining = isJoining,
-                                        onJoinClick = {
-                                            if (userClubIds.contains(club.clubId)) {
-                                                Toast.makeText(context, "Already a member!", Toast.LENGTH_SHORT).show()
-                                                return@ClubCard
-                                            }
-                                            isJoining = true
-                                            scope.launch {
-                                                try {
-                                                    android.util.Log.d("ClubsScreen", "Joining club: ${club.clubId}")
-                                                    val success = joinClub(currentUserId, club.clubId, firestore)
-                                                    if (success) {
-                                                        userClubIds = userClubIds + club.clubId
-                                                        clubs = clubs.map {
-                                                            if (it.clubId == club.clubId) {
-                                                                it.copy(memberCount = it.memberCount + 1)
-                                                            } else it
+                            // Clubs List
+                            if (filteredClubs.isEmpty()) {
+                                Box(
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                        Text("🎯", fontSize = 64.sp)
+                                        Spacer(modifier = Modifier.height(16.dp))
+                                        Text(
+                                            text = "No clubs found",
+                                            fontSize = 18.sp,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = Color.White.copy(alpha = 0.7f)
+                                        )
+                                        Text(
+                                            text = "Try adjusting your search or filter",
+                                            fontSize = 13.sp,
+                                            color = Color.White.copy(alpha = 0.5f)
+                                        )
+                                    }
+                                }
+                            } else {
+                                LazyColumn(
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentPadding = PaddingValues(16.dp),
+                                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
+                                    items(filteredClubs) { club ->
+                                        var isJoining by remember { mutableStateOf(false) }
+
+                                        ModernClubCard(
+                                            club = club,
+                                            isJoined = userClubIds.contains(club.clubId),
+                                            userRole = userRole,
+                                            navController = navController,
+                                            isJoining = isJoining,
+                                            onJoinClick = {
+                                                if (userClubIds.contains(club.clubId)) {
+                                                    Toast.makeText(context, "Already a member!", Toast.LENGTH_SHORT).show()
+                                                    return@ModernClubCard
+                                                }
+                                                isJoining = true
+                                                scope.launch {
+                                                    try {
+                                                        val success = joinClub(currentUserId, club.clubId, firestore)
+                                                        if (success) {
+                                                            userClubIds = userClubIds + club.clubId
+                                                            clubs = clubs.map {
+                                                                if (it.clubId == club.clubId) {
+                                                                    it.copy(memberCount = it.memberCount + 1)
+                                                                } else it
+                                                            }
+                                                            Toast.makeText(context, "Joined ${club.name}!", Toast.LENGTH_SHORT).show()
+                                                        } else {
+                                                            Toast.makeText(context, "Failed to join club", Toast.LENGTH_LONG).show()
                                                         }
-                                                        Toast.makeText(
-                                                            context,
-                                                            "Joined ${club.name}!",
-                                                            Toast.LENGTH_SHORT
-                                                        ).show()
-                                                        android.util.Log.d("ClubsScreen", "Successfully joined")
-                                                    } else {
-                                                        Toast.makeText(
-                                                            context,
-                                                            "Failed to join club. You might already be a member.",
-                                                            Toast.LENGTH_LONG
-                                                        ).show()
-                                                        android.util.Log.e("ClubsScreen", "Join failed for club: ${club.clubId}")
+                                                    } catch (e: Exception) {
+                                                        Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_LONG).show()
+                                                    } finally {
+                                                        isJoining = false
                                                     }
-                                                } catch (e: Exception) {
-                                                    android.util.Log.e("ClubsScreen", "Error joining club", e)
-                                                    Toast.makeText(
-                                                        context,
-                                                        "Error: ${e.message}",
-                                                        Toast.LENGTH_LONG
-                                                    ).show()
-                                                } finally {
-                                                    isJoining = false
+                                                }
+                                            },
+                                            onLeaveClick = {
+                                                isJoining = true
+                                                scope.launch {
+                                                    try {
+                                                        val success = leaveClub(currentUserId, club.clubId, firestore)
+                                                        if (success) {
+                                                            userClubIds = userClubIds.filter { it != club.clubId }
+                                                            clubs = clubs.map {
+                                                                if (it.clubId == club.clubId) {
+                                                                    it.copy(memberCount = it.memberCount - 1)
+                                                                } else it
+                                                            }
+                                                            Toast.makeText(context, "Left ${club.name}", Toast.LENGTH_SHORT).show()
+                                                        } else {
+                                                            Toast.makeText(context, "Failed to leave club", Toast.LENGTH_SHORT).show()
+                                                        }
+                                                    } catch (e: Exception) {
+                                                        Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
+                                                    } finally {
+                                                        isJoining = false
+                                                    }
                                                 }
                                             }
-                                        },
-                                        onLeaveClick = {
-                                            isJoining = true
-                                            scope.launch {
-                                                try {
-                                                    android.util.Log.d("ClubsScreen", "Leaving club: ${club.clubId}")
-                                                    val success = leaveClub(currentUserId, club.clubId, firestore)
-                                                    if (success) {
-                                                        userClubIds = userClubIds.filter { it != club.clubId }
-                                                        clubs = clubs.map {
-                                                            if (it.clubId == club.clubId) {
-                                                                it.copy(memberCount = it.memberCount - 1)
-                                                            } else it
-                                                        }
-                                                        Toast.makeText(
-                                                            context,
-                                                            "Left ${club.name}",
-                                                            Toast.LENGTH_SHORT
-                                                        ).show()
-                                                    } else {
-                                                        Toast.makeText(
-                                                            context,
-                                                            "Failed to leave club",
-                                                            Toast.LENGTH_SHORT
-                                                        ).show()
-                                                    }
-                                                } catch (e: Exception) {
-                                                    Toast.makeText(
-                                                        context,
-                                                        "Error: ${e.message}",
-                                                        Toast.LENGTH_SHORT
-                                                    ).show()
-                                                } finally {
-                                                    isJoining = false
-                                                }
-                                            }
-                                        }
-                                    )
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -321,7 +384,7 @@ fun ClubsScreen(navController: NavController) {
 }
 
 @Composable
-fun ClubCard(
+fun ModernClubCard(
     club: Club,
     isJoined: Boolean,
     userRole: String,
@@ -341,15 +404,27 @@ fun ClubCard(
         else -> club.category
     }
 
+    val categoryIcon = when (club.category) {
+        "COMMUNITY_SERVICE" -> "🤝"
+        "LEADERSHIP" -> "👥"
+        "CULTURAL" -> "🎭"
+        "RELIGIOUS" -> "⛪"
+        "PROFESSIONAL" -> "💼"
+        "SPORTS" -> "⚽"
+        "SPECIAL_INTEREST" -> "⭐"
+        else -> "🏛️"
+    }
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .clickable {
-                // Only navigate to detail when clicking the card, not the button
                 navController.navigate("club_detail/${club.clubId}")
             },
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
-        shape = RoundedCornerShape(12.dp)
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = Color.White.copy(alpha = 0.08f)
+        )
     ) {
         Column(
             modifier = Modifier
@@ -361,55 +436,75 @@ fun ClubCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = club.name,
-                        style = MaterialTheme.typography.titleLarge,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                    Text(
-                        text = displayCategory,
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.secondary
-                    )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    // Category Icon Circle
+                    Box(
+                        modifier = Modifier
+                            .size(50.dp)
+                            .clip(CircleShape)
+                            .background(
+                                Brush.horizontalGradient(
+                                    colors = listOf(Color(0xFFE94560), Color(0xFFF5A623))
+                                )
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(categoryIcon, fontSize = 24.sp)
+                    }
+
+                    Spacer(modifier = Modifier.width(12.dp))
+
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = club.name,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color.White
+                        )
+                        Text(
+                            text = displayCategory,
+                            fontSize = 11.sp,
+                            color = Color(0xFFE94560)
+                        )
+                    }
                 }
 
-                // Button area - click doesn't propagate to card
-                Row {
-                    when {
-                        isJoining -> {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(24.dp)
+                // Action Button
+                when {
+                    isJoining -> {
+                        CircularProgressIndicator(modifier = Modifier.size(28.dp), color = Color(0xFFE94560), strokeWidth = 2.dp)
+                    }
+                    userRole == "admin" -> {
+                        OutlinedButton(
+                            onClick = { navController.navigate("edit_club/${club.clubId}") },
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                contentColor = Color(0xFFE94560)
                             )
+                        ) {
+                            Text("Edit", fontSize = 12.sp)
                         }
-                        userRole == "admin" -> {
-                            Button(
-                                onClick = {
-                                    navController.navigate("edit_club/${club.clubId}")
-                                },
-                                modifier = Modifier.width(100.dp)
-                            ) {
-                                Text("Edit")
-                            }
+                    }
+                    isJoined -> {
+                        OutlinedButton(
+                            onClick = onLeaveClick,
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                contentColor = Color(0xFFE94560)
+                            )
+                        ) {
+                            Text("Leave", fontSize = 12.sp)
                         }
-                        isJoined -> {
-                            OutlinedButton(
-                                onClick = onLeaveClick,
-                                modifier = Modifier.width(100.dp),
-                                colors = ButtonDefaults.outlinedButtonColors(
-                                    contentColor = MaterialTheme.colorScheme.error
-                                )
-                            ) {
-                                Text("Leave")
-                            }
-                        }
-                        else -> {
-                            Button(
-                                onClick = onJoinClick,
-                                modifier = Modifier.width(100.dp)
-                            ) {
-                                Text("Join")
-                            }
+                    }
+                    else -> {
+                        Button(
+                            onClick = onJoinClick,
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color(0xFFE94560)
+                            )
+                        ) {
+                            Text("Join", fontSize = 12.sp, color = Color.White)
                         }
                     }
                 }
@@ -419,41 +514,45 @@ fun ClubCard(
 
             Text(
                 text = club.description,
-                style = MaterialTheme.typography.bodyMedium,
-                maxLines = 3,
-                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                fontSize = 13.sp,
+                color = Color.White.copy(alpha = 0.7f),
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
             )
 
             Spacer(modifier = Modifier.height(8.dp))
 
             Row(
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
                         imageVector = Icons.Default.Person,
                         contentDescription = "Members",
-                        modifier = Modifier.size(16.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        modifier = Modifier.size(14.dp),
+                        tint = Color.White.copy(alpha = 0.5f)
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
                         text = "${club.memberCount} members",
-                        style = MaterialTheme.typography.bodySmall
+                        fontSize = 11.sp,
+                        color = Color.White.copy(alpha = 0.5f)
                     )
                 }
 
                 if (isJoined && !isJoining) {
                     Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = MaterialTheme.colorScheme.primaryContainer
+                        shape = RoundedCornerShape(20.dp),
+                        color = Color(0xFF4CAF50).copy(alpha = 0.2f)
                     ) {
                         Text(
-                            text = "Member",
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.primary
+                            text = "✓ Member",
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = Color(0xFF4CAF50)
                         )
                     }
                 }
@@ -465,62 +564,43 @@ fun ClubCard(
 // Helper functions
 suspend fun joinClub(userId: String?, clubId: String, firestore: FirebaseFirestore): Boolean {
     if (userId == null) {
-        android.util.Log.e("JoinClub", "User ID is null")
         return false
     }
 
     return try {
-        android.util.Log.d("JoinClub", "Starting join process for user: $userId, club: $clubId")
-
-        // Get current user data
         val userDoc = firestore.collection("users").document(userId).get().await()
         @Suppress("UNCHECKED_CAST")
         val currentClubIds = (userDoc.get("clubIds") as? List<String>) ?: emptyList()
 
-        android.util.Log.d("JoinClub", "Current club IDs: $currentClubIds")
-
-        // Check if already a member
         if (currentClubIds.contains(clubId)) {
-            android.util.Log.d("JoinClub", "User already a member")
             return false
         }
 
-        // Add new club ID to the list
         val updatedClubIds = currentClubIds + clubId
-        android.util.Log.d("JoinClub", "Updated club IDs: $updatedClubIds")
-
-        // Update user's clubIds array
         firestore.collection("users").document(userId).update("clubIds", updatedClubIds).await()
 
-        // Increment club member count
         val clubRef = firestore.collection("clubs").document(clubId)
         val club = clubRef.get().await()
         val currentCount = club.getLong("memberCount") ?: 0
         clubRef.update("memberCount", currentCount + 1).await()
 
-        android.util.Log.d("JoinClub", "Successfully joined club")
         true
     } catch (e: Exception) {
-        android.util.Log.e("JoinClub", "Error joining club: ${e.message}", e)
         false
     }
 }
 
 suspend fun leaveClub(userId: String?, clubId: String, firestore: FirebaseFirestore): Boolean {
     if (userId == null) {
-        android.util.Log.e("LeaveClub", "User ID is null")
         return false
     }
 
     return try {
-        android.util.Log.d("LeaveClub", "Starting leave process")
-
         val userDoc = firestore.collection("users").document(userId).get().await()
         @Suppress("UNCHECKED_CAST")
         val currentClubIds = (userDoc.get("clubIds") as? List<String>) ?: emptyList()
 
         if (!currentClubIds.contains(clubId)) {
-            android.util.Log.d("LeaveClub", "User is not a member")
             return false
         }
 
@@ -534,15 +614,12 @@ suspend fun leaveClub(userId: String?, clubId: String, firestore: FirebaseFirest
             clubRef.update("memberCount", currentCount - 1).await()
         }
 
-        android.util.Log.d("LeaveClub", "Successfully left club")
         true
     } catch (e: Exception) {
-        android.util.Log.e("LeaveClub", "Error leaving club: ${e.message}", e)
         false
     }
 }
 
-// ClubDetailScreen (simplified)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ClubDetailScreen(clubId: String, navController: NavController) {
@@ -550,7 +627,6 @@ fun ClubDetailScreen(clubId: String, navController: NavController) {
     var isLoading by remember { mutableStateOf(true) }
     var isJoined by remember { mutableStateOf(false) }
     var userRole by remember { mutableStateOf("student") }
-    var clubEvents by remember { mutableStateOf<List<Event>>(emptyList()) }
 
     val scope = rememberCoroutineScope()
     val firestore = FirebaseFirestore.getInstance()
@@ -571,14 +647,6 @@ fun ClubDetailScreen(clubId: String, navController: NavController) {
                     isJoined = clubIds.contains(clubId)
                 }
 
-                val eventsSnapshot = firestore.collection("events")
-                    .whereEqualTo("clubId", clubId)
-                    .get()
-                    .await()
-                clubEvents = eventsSnapshot.documents.mapNotNull { doc ->
-                    doc.toObject(Event::class.java)?.copy(eventId = doc.id)
-                }
-
                 isLoading = false
             } catch (_: Exception) {
                 isLoading = false
@@ -587,50 +655,164 @@ fun ClubDetailScreen(clubId: String, navController: NavController) {
     }
 
     Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(club?.name ?: "Club Details") },
-                navigationIcon = {
-                    IconButton(onClick = { navController.navigateUp() }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer
-                )
-            )
-        }
+        modifier = Modifier.fillMaxSize(),
+        containerColor = Color.Transparent
     ) { paddingValues ->
-        when {
-            isLoading -> {
-                Box(
-                    modifier = Modifier.fillMaxSize().padding(paddingValues),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator()
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(
+                            Color(0xFF1A1A2E),
+                            Color(0xFF16213E),
+                            Color(0xFF0F3460)
+                        )
+                    )
+                )
+                .padding(paddingValues)
+        ) {
+            when {
+                isLoading -> {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(color = Color(0xFFE94560))
+                    }
                 }
-            }
-            club == null -> {
-                Box(
-                    modifier = Modifier.fillMaxSize().padding(paddingValues),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text("Club not found")
+                club == null -> {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text("Club not found", color = Color.White)
+                    }
                 }
-            }
-            else -> {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize().padding(paddingValues),
-                    contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    item {
-                        Card(modifier = Modifier.fillMaxWidth()) {
-                            Column(modifier = Modifier.padding(16.dp)) {
-                                Text(club!!.name, style = MaterialTheme.typography.headlineSmall)
-                                Text(club!!.description, style = MaterialTheme.typography.bodyLarge)
-                                Spacer(modifier = Modifier.height(8.dp))
-                                Text("${club!!.memberCount} Members")
+                else -> {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        item {
+                            IconButton(onClick = { navController.navigateUp() }) {
+                                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
+                            }
+                        }
+
+                        item {
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(24.dp),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = Color.White.copy(alpha = 0.1f)
+                                )
+                            ) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(24.dp)
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(80.dp)
+                                            .clip(CircleShape)
+                                            .background(
+                                                Brush.horizontalGradient(
+                                                    colors = listOf(Color(0xFFE94560), Color(0xFFF5A623))
+                                                )
+                                            )
+                                            .align(Alignment.CenterHorizontally),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        val categoryIcon = when (club!!.category) {
+                                            "COMMUNITY_SERVICE" -> "🤝"
+                                            "LEADERSHIP" -> "👥"
+                                            "CULTURAL" -> "🎭"
+                                            "RELIGIOUS" -> "⛪"
+                                            "PROFESSIONAL" -> "💼"
+                                            "SPORTS" -> "⚽"
+                                            "SPECIAL_INTEREST" -> "⭐"
+                                            else -> "🏛️"
+                                        }
+                                        Text(categoryIcon, fontSize = 40.sp)
+                                    }
+
+                                    Spacer(modifier = Modifier.height(16.dp))
+
+                                    Text(
+                                        text = club!!.name,
+                                        fontSize = 24.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color.White,
+                                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                        modifier = Modifier.fillMaxWidth()
+                                    )
+
+                                    val displayCategory = when (club!!.category) {
+                                        "COMMUNITY_SERVICE" -> "Community Service"
+                                        "LEADERSHIP" -> "Leadership"
+                                        "CULTURAL" -> "Cultural"
+                                        "RELIGIOUS" -> "Religious"
+                                        "PROFESSIONAL" -> "Professional"
+                                        "SPORTS" -> "Sports"
+                                        "SPECIAL_INTEREST" -> "Special Interest"
+                                        else -> club!!.category
+                                    }
+
+                                    Text(
+                                        text = displayCategory,
+                                        fontSize = 14.sp,
+                                        color = Color(0xFFE94560),
+                                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                        modifier = Modifier.fillMaxWidth().padding(top = 4.dp)
+                                    )
+
+                                    Text(
+                                        text = club!!.description,
+                                        fontSize = 14.sp,
+                                        color = Color.White.copy(alpha = 0.7f),
+                                        lineHeight = 20.sp,
+                                        modifier = Modifier.padding(top = 16.dp)
+                                    )
+
+                                    Spacer(modifier = Modifier.height(16.dp))
+
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.Center
+                                    ) {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Icon(Icons.Default.Person, null, modifier = Modifier.size(18.dp), tint = Color(0xFFE94560))
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Text("${club!!.memberCount} Members", fontSize = 14.sp, color = Color.White.copy(alpha = 0.7f))
+                                        }
+                                    }
+
+                                    Spacer(modifier = Modifier.height(20.dp))
+
+                                    Button(
+                                        onClick = {
+                                            scope.launch {
+                                                if (isJoined) {
+                                                    leaveClub(currentUserId, clubId, firestore)
+                                                    isJoined = false
+                                                } else {
+                                                    joinClub(currentUserId, clubId, firestore)
+                                                    isJoined = true
+                                                }
+                                                val updatedClub = firestore.collection("clubs").document(clubId).get().await()
+                                                club = updatedClub.toObject(Club::class.java)?.copy(clubId = clubId)
+                                            }
+                                        },
+                                        modifier = Modifier.fillMaxWidth().height(48.dp),
+                                        shape = RoundedCornerShape(16.dp),
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = if (isJoined) Color(0xFFE94560).copy(alpha = 0.2f) else Color(0xFFE94560)
+                                        )
+                                    ) {
+                                        Text(
+                                            if (isJoined) "Leave Club" else "Join Club",
+                                            color = if (isJoined) Color(0xFFE94560) else Color.White,
+                                            fontWeight = FontWeight.Medium
+                                        )
+                                    }
+                                }
                             }
                         }
                     }
