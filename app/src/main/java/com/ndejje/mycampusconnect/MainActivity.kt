@@ -1,6 +1,7 @@
 package com.ndejje.mycampusconnect
 
 import android.os.Bundle
+import kotlinx.coroutines.delay
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.fillMaxSize
@@ -33,46 +34,49 @@ fun CampusConnectApp() {
     val authViewModel: AuthViewModel = viewModel()
     val currentUser by authViewModel.currentUser.collectAsState()
 
-    var isLoggedIn by remember { mutableStateOf(currentUser != null) }
+    var showSplash by remember { mutableStateOf(true) }
 
-    LaunchedEffect(currentUser) {
-        isLoggedIn = currentUser != null
+    LaunchedEffect(Unit) {
+        delay(2000) // Show splash for 2 seconds
+        showSplash = false
     }
+
+    val startDestination = when {
+        showSplash -> "splash"
+        currentUser != null -> "home"
+        else -> "auth"
+    }
+
+
 
     Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
         NavHost(
             navController = navController,
-            startDestination = if (isLoggedIn) "home" else "splash",
+            startDestination = startDestination,
             modifier = Modifier.padding(innerPadding)
         ) {
+            // Splash Screen (optional)
             composable("splash") {
                 SplashScreen(
                     onTimeout = {
-                        navController.navigate(if (isLoggedIn) "home" else "login")
+                        navController.navigate(if (currentUser != null) "home" else "auth") {
+                            popUpTo("splash") { inclusive = true }
+                        }
                     }
                 )
             }
 
-            composable("login") {
-                LoginScreen(
-                    onLoginSuccess = {
-                        navController.navigate("home")
-                    },
-                    navController = navController
-                )
-            }
-
-            composable("register") {
-                RegisterScreen(
-                    onRegisterSuccess = {
-                        navController.navigate("home")
-                    },
-                    navController = navController
-                )
+            // Auth Screen (Login/Register)
+            composable("auth") {
+                AuthScreen(onAuthSuccess = {
+                    navController.navigate("home") {
+                        popUpTo("auth") { inclusive = true }
+                    }
+                })
             }
 
             // Main Screens
-            composable("home") { HomeScreen(navController) }
+            composable("home") { MainDashboardScreen(navController) }
             composable("events") { EventsScreen(navController) }
             composable("clubs") { ClubsScreen(navController) }
             composable("lost_and_found") { LostAndFoundScreen(navController) }
@@ -82,7 +86,9 @@ fun CampusConnectApp() {
                     navController = navController,
                     onLogout = {
                         authViewModel.logout()
-                        navController.navigate("login")
+                        navController.navigate("auth") {
+                            popUpTo("home") { inclusive = true }
+                        }
                     }
                 )
             }
@@ -108,10 +114,6 @@ fun CampusConnectApp() {
             composable("seed_data") {
                 SeedDataScreen(navController)
             }
-            composable("home") {
-                MainDashboardScreen(navController)
-            }
-
         }
     }
 }

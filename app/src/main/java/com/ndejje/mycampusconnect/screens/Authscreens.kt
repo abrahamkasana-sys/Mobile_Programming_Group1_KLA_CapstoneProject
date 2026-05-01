@@ -29,7 +29,6 @@ import com.ndejje.mycampusconnect.viewmodels.AuthViewModel
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AuthScreen(
-    navController: NavController,
     onAuthSuccess: () -> Unit
 ) {
     val context = LocalContext.current
@@ -158,7 +157,7 @@ fun AuthScreen(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Password Field with simple visibility toggle (using text instead of icon)
+            // Password Field
             OutlinedTextField(
                 value = password,
                 onValueChange = { password = it; localError = null },
@@ -190,42 +189,7 @@ fun AuthScreen(
                     unfocusedTextColor = Color.White
                 )
             )
-
-            // Confirm Password Field (Register Mode Only)
-            if (!isLoginMode) {
-                Spacer(modifier = Modifier.height(12.dp))
-                OutlinedTextField(
-                    value = confirmPassword,
-                    onValueChange = { confirmPassword = it; localError = null },
-                    label = { Text("Confirm Password", color = Color.White.copy(alpha = 0.7f)) },
-                    leadingIcon = {
-                        Icon(Icons.Default.Lock, contentDescription = null, tint = Color(0xFFE94560))
-                    },
-                    trailingIcon = {
-                        TextButton(
-                            onClick = { passwordVisible = !passwordVisible },
-                            modifier = Modifier.padding(0.dp)
-                        ) {
-                            Text(
-                                if (passwordVisible) "Hide" else "Show",
-                                color = Color(0xFFE94560),
-                                fontSize = 12.sp
-                            )
-                        }
-                    },
-                    visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = Color(0xFFE94560),
-                        unfocusedBorderColor = Color.White.copy(alpha = 0.3f),
-                        focusedLabelColor = Color(0xFFE94560),
-                        cursorColor = Color(0xFFE94560),
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White
-                    )
-                )
-            }
+            Spacer(modifier = Modifier.height(12.dp))
 
             Spacer(modifier = Modifier.height(24.dp))
 

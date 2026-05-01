@@ -20,12 +20,8 @@ class AuthViewModel : ViewModel() {
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
 
-    private val _isAuthenticated = MutableStateFlow(false)
-    val isAuthenticated: StateFlow<Boolean> = _isAuthenticated.asStateFlow()
-
-    init {
-        _isAuthenticated.value = auth.currentUser != null
-    }
+    private val _currentUser = MutableStateFlow<com.google.firebase.auth.FirebaseUser?>(auth.currentUser)
+    val currentUser: StateFlow<com.google.firebase.auth.FirebaseUser?> = _currentUser.asStateFlow()
 
     fun clearError() {
         _error.value = null
@@ -37,7 +33,7 @@ class AuthViewModel : ViewModel() {
             _error.value = null
             try {
                 auth.signInWithEmailAndPassword(email, password).await()
-                _isAuthenticated.value = true
+                _currentUser.value = auth.currentUser
                 _isLoading.value = false
                 onSuccess()
             } catch (e: Exception) {
@@ -65,7 +61,7 @@ class AuthViewModel : ViewModel() {
                 )
 
                 firestore.collection("users").document(userId).set(user).await()
-                _isAuthenticated.value = true
+                _currentUser.value = auth.currentUser
                 _isLoading.value = false
                 onSuccess()
             } catch (e: Exception) {
@@ -77,7 +73,7 @@ class AuthViewModel : ViewModel() {
 
     fun logout() {
         auth.signOut()
-        _isAuthenticated.value = false
+        _currentUser.value = null
     }
 
     fun getCurrentUser() = auth.currentUser

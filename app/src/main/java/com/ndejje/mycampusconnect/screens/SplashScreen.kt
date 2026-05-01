@@ -5,13 +5,15 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.font.FontWeight
 import kotlinx.coroutines.delay
+import androidx.compose.ui.unit.sp
+
 
 @Composable
 fun SplashScreen(onTimeout: () -> Unit) {
     LaunchedEffect(Unit) {
-        delay(2000) // Show splash for 2 seconds
+        delay(2000)
         onTimeout()
     }
 
@@ -20,14 +22,18 @@ fun SplashScreen(onTimeout: () -> Unit) {
         contentAlignment = Alignment.Center
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text("🎓", fontSize = 64.sp)
             Text(
-                text = "CampusConnect",
-                style = MaterialTheme.typography.headlineLarge
+                "CampusConnect",
+                fontSize = 28.sp,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary
             )
-            Spacer(modifier = Modifier.height(16.dp))
-            CircularProgressIndicator()
-            Spacer(modifier = Modifier.height(8.dp))
-            Text("Connecting students...")
+            Text(
+                "Connecting Students",
+                fontSize = 14.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }
