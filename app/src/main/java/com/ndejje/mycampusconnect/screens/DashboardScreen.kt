@@ -20,6 +20,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -35,6 +36,7 @@ import android.widget.Toast
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainDashboardScreen(navController: NavController) {
+    val context = LocalContext.current  // ADD THIS LINE - fixes the context error
     val scope = rememberCoroutineScope()
     val firestore = FirebaseFirestore.getInstance()
     val auth = FirebaseAuth.getInstance()
@@ -42,6 +44,8 @@ fun MainDashboardScreen(navController: NavController) {
 
     var userName by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(true) }
+    var realEvents by remember { mutableStateOf<List<Map<String, Any>>>(emptyList()) }
+    var loadingEvents by remember { mutableStateOf(true) }
 
     val infiniteTransition = rememberInfiniteTransition()
     val animatedOffset by infiniteTransition.animateFloat(
@@ -53,6 +57,7 @@ fun MainDashboardScreen(navController: NavController) {
         )
     )
 
+    // Load user data and events
     LaunchedEffect(Unit) {
         scope.launch {
             try {
@@ -61,8 +66,24 @@ fun MainDashboardScreen(navController: NavController) {
                     val userDoc = firestore.collection("users").document(userId).get().await()
                     userName = userDoc.getString("name") ?: currentUser.displayName ?: "Student"
                 }
+
+                // Load real events from Firestore
+                val currentTime = System.currentTimeMillis()
+                val snapshot = firestore.collection("events")
+                    .whereGreaterThan("date", currentTime)
+                    .orderBy("date")
+                    .limit(5)
+                    .get()
+                    .await()
+
+                realEvents = snapshot.documents.mapNotNull { doc ->
+                    val data = doc.data
+                    if (data != null) data + ("id" to doc.id) else null
+                }
+                loadingEvents = false
                 isLoading = false
             } catch (_: Exception) {
+                loadingEvents = false
                 isLoading = false
             }
         }
@@ -74,6 +95,29 @@ fun MainDashboardScreen(navController: NavController) {
         in 0..11 -> "Good Morning"
         in 12..16 -> "Good Afternoon"
         else -> "Good Evening"
+    }
+
+    // Function to format date
+    fun formatDate(timestamp: Long): Pair<String, String> {
+        val date = Date(timestamp)
+        val cal = Calendar.getInstance()
+        cal.time = date
+        val month = when (cal.get(Calendar.MONTH)) {
+            0 -> "JAN"
+            1 -> "FEB"
+            2 -> "MAR"
+            3 -> "APR"
+            4 -> "MAY"
+            5 -> "JUN"
+            6 -> "JUL"
+            7 -> "AUG"
+            8 -> "SEP"
+            9 -> "OCT"
+            10 -> "NOV"
+            else -> "DEC"
+        }
+        val day = cal.get(Calendar.DAY_OF_MONTH).toString()
+        return Pair(month, day)
     }
 
     if (isLoading) {
@@ -132,49 +176,14 @@ fun MainDashboardScreen(navController: NavController) {
                             Text(userName, fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Color.White)
                             Text("Welcome to CampusConnect!", fontSize = 12.sp, color = Color.White.copy(alpha = 0.5f))
                         }
-                        IconButton(
-                            onClick = { navController.navigate("notifications") },
-                            modifier = Modifier.background(Color.White.copy(alpha = 0.1f), CircleShape)
-                        ) {
-                            Icon(Icons.Default.Notifications, "Notifications", tint = Color.White)
-                        }
-                        // Add this IconButton next to the notification bell
-                        IconButton(
-                            onClick = {
-                                scope.launch {
-                                    try {
-                                        val currentTime = System.currentTimeMillis()
-                                        val events = listOf(
-                                            mapOf(
-                                                "title" to "Welcome Week Festival",
-                                                "description" to "Join us for the annual Welcome Week festival!",
-                                                "date" to currentTime + 7 * 24 * 60 * 60 * 1000,
-                                                "location" to "Main Campus Grounds",
-                                                "clubId" to "",
-                                                "imageUrl" to ""
-                                            ),
-                                            mapOf(
-                                                "title" to "Tech Career Fair",
-                                                "description" to "Meet top employers and find internships.",
-                                                "date" to currentTime + 14 * 24 * 60 * 60 * 1000,
-                                                "location" to "Business School Hall",
-                                                "clubId" to "",
-                                                "imageUrl" to ""
-                                            )
-                                        )
-                                        for (event in events) {
-                                            firestore.collection("events").add(event).await()
-                                        }
-                                        Toast.makeText(context, "Events added!", Toast.LENGTH_SHORT).show()
-                                        // Reload events here
-                                    } catch (e: Exception) {
-                                        Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
-                                    }
-                                }
-                            },
-                            modifier = Modifier.background(Color.White.copy(alpha = 0.1f), CircleShape)
-                        ) {
-                            Icon(Icons.Default.Add, "Add Events", tint = Color.White)
+
+                        Row {
+                            IconButton(
+                                onClick = { navController.navigate("notifications") },
+                                modifier = Modifier.background(Color.White.copy(alpha = 0.1f), CircleShape)
+                            ) {
+                                Icon(Icons.Default.Notifications, "Notifications", tint = Color.White)
+                            }
                         }
                     }
                 }
@@ -210,7 +219,7 @@ fun MainDashboardScreen(navController: NavController) {
                                 ) {
                                     Icon(Icons.Default.DateRange, "Events", tint = Color.White, modifier = Modifier.size(28.dp))
                                     Column {
-                                        Text("24", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                                        Text("${realEvents.size}", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Color.White)
                                         Text("Events", fontSize = 12.sp, color = Color.White.copy(alpha = 0.8f))
                                     }
                                 }
@@ -393,76 +402,68 @@ fun MainDashboardScreen(navController: NavController) {
                     }
                 }
 
-                // Event Card 1 (Sample)
-                item {
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 6.dp)
-                            .clickable { navController.navigate("events") },
-                        shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.1f))
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(16.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Surface(shape = RoundedCornerShape(12.dp), color = Color(0xFFE94560), modifier = Modifier.size(60.dp)) {
-                                Column(
-                                    modifier = Modifier.fillMaxSize(),
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    verticalArrangement = Arrangement.Center
-                                ) {
-                                    Text("DEC", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color.White)
-                                    Text("15", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.White)
-                                }
-                            }
-                            Spacer(modifier = Modifier.width(16.dp))
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text("Welcome Week Festival", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
-                                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 4.dp)) {
-                                    Icon(Icons.Default.LocationOn, null, modifier = Modifier.size(12.dp), tint = Color.White.copy(alpha = 0.6f))
-                                    Text("Main Campus Grounds", fontSize = 12.sp, color = Color.White.copy(alpha = 0.6f), modifier = Modifier.padding(start = 4.dp))
-                                }
-                            }
-                            Icon(Icons.AutoMirrored.Filled.ArrowForward, "View", tint = Color.White.copy(alpha = 0.5f), modifier = Modifier.size(20.dp))
+                // Show Events from Firestore
+                if (loadingEvents) {
+                    item {
+                        Box(modifier = Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
+                            CircularProgressIndicator(color = Color(0xFFE94560))
                         }
                     }
-                }
-
-                // Event Card 2 (Sample)
-                item {
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 6.dp)
-                            .clickable { navController.navigate("events") },
-                        shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.1f))
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(16.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                } else if (realEvents.isEmpty()) {
+                    item {
+                        Card(
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
+                            shape = RoundedCornerShape(16.dp),
+                            colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.05f))
                         ) {
-                            Surface(shape = RoundedCornerShape(12.dp), color = Color(0xFFE94560), modifier = Modifier.size(60.dp)) {
-                                Column(
-                                    modifier = Modifier.fillMaxSize(),
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    verticalArrangement = Arrangement.Center
-                                ) {
-                                    Text("DEC", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color.White)
-                                    Text("22", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.White)
-                                }
+                            Column(modifier = Modifier.fillMaxWidth().padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                                Icon(Icons.Default.DateRange, null, modifier = Modifier.size(48.dp), tint = Color.White.copy(alpha = 0.3f))
+                                Spacer(modifier = Modifier.height(12.dp))
+                                Text("No Upcoming Events", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = Color.White.copy(alpha = 0.8f))
+                                Text("Click the + button above to add sample events", fontSize = 12.sp, color = Color.White.copy(alpha = 0.5f))
                             }
-                            Spacer(modifier = Modifier.width(16.dp))
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text("Tech Career Fair", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
-                                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 4.dp)) {
-                                    Icon(Icons.Default.LocationOn, null, modifier = Modifier.size(12.dp), tint = Color.White.copy(alpha = 0.6f))
-                                    Text("Business School Hall", fontSize = 12.sp, color = Color.White.copy(alpha = 0.6f), modifier = Modifier.padding(start = 4.dp))
+                        }
+                    }
+                } else {
+                    items(realEvents) { event ->
+                        val title = event["title"] as? String ?: "Event"
+                        val date = event["date"] as? Long ?: 0
+                        val location = event["location"] as? String ?: "TBD"
+                        val eventId = event["id"] as? String ?: ""
+                        val (month, day) = formatDate(date)
+
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 6.dp)
+                                .clickable { navController.navigate("event_detail/$eventId") },
+                            shape = RoundedCornerShape(16.dp),
+                            colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.1f))
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(16.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Surface(shape = RoundedCornerShape(12.dp), color = Color(0xFFE94560), modifier = Modifier.size(60.dp)) {
+                                    Column(
+                                        modifier = Modifier.fillMaxSize(),
+                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                        verticalArrangement = Arrangement.Center
+                                    ) {
+                                        Text(month, fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                                        Text(day, fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                                    }
                                 }
+                                Spacer(modifier = Modifier.width(16.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(title, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 4.dp)) {
+                                        Icon(Icons.Default.LocationOn, null, modifier = Modifier.size(12.dp), tint = Color.White.copy(alpha = 0.6f))
+                                        Text(location, fontSize = 12.sp, color = Color.White.copy(alpha = 0.6f), modifier = Modifier.padding(start = 4.dp))
+                                    }
+                                }
+                                Icon(Icons.AutoMirrored.Filled.ArrowForward, "View", tint = Color.White.copy(alpha = 0.5f), modifier = Modifier.size(20.dp))
                             }
-                            Icon(Icons.AutoMirrored.Filled.ArrowForward, "View", tint = Color.White.copy(alpha = 0.5f), modifier = Modifier.size(20.dp))
                         }
                     }
                 }
