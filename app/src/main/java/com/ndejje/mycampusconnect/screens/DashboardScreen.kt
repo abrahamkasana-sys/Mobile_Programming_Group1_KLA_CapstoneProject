@@ -30,6 +30,7 @@ import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import java.util.*
+import android.widget.Toast
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -136,6 +137,44 @@ fun MainDashboardScreen(navController: NavController) {
                             modifier = Modifier.background(Color.White.copy(alpha = 0.1f), CircleShape)
                         ) {
                             Icon(Icons.Default.Notifications, "Notifications", tint = Color.White)
+                        }
+                        // Add this IconButton next to the notification bell
+                        IconButton(
+                            onClick = {
+                                scope.launch {
+                                    try {
+                                        val currentTime = System.currentTimeMillis()
+                                        val events = listOf(
+                                            mapOf(
+                                                "title" to "Welcome Week Festival",
+                                                "description" to "Join us for the annual Welcome Week festival!",
+                                                "date" to currentTime + 7 * 24 * 60 * 60 * 1000,
+                                                "location" to "Main Campus Grounds",
+                                                "clubId" to "",
+                                                "imageUrl" to ""
+                                            ),
+                                            mapOf(
+                                                "title" to "Tech Career Fair",
+                                                "description" to "Meet top employers and find internships.",
+                                                "date" to currentTime + 14 * 24 * 60 * 60 * 1000,
+                                                "location" to "Business School Hall",
+                                                "clubId" to "",
+                                                "imageUrl" to ""
+                                            )
+                                        )
+                                        for (event in events) {
+                                            firestore.collection("events").add(event).await()
+                                        }
+                                        Toast.makeText(context, "Events added!", Toast.LENGTH_SHORT).show()
+                                        // Reload events here
+                                    } catch (e: Exception) {
+                                        Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
+                                    }
+                                }
+                            },
+                            modifier = Modifier.background(Color.White.copy(alpha = 0.1f), CircleShape)
+                        ) {
+                            Icon(Icons.Default.Add, "Add Events", tint = Color.White)
                         }
                     }
                 }
