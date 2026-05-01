@@ -40,6 +40,7 @@ fun AuthScreen(
     var name by remember { mutableStateOf("") }
     var confirmPassword by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
+    var confirmPasswordVisible by remember { mutableStateOf(false) }
 
     val isLoading by authViewModel.isLoading.collectAsState()
     val error by authViewModel.error.collectAsState()
@@ -49,6 +50,9 @@ fun AuthScreen(
     LaunchedEffect(isLoginMode) {
         localError = null
         authViewModel.clearError()
+        // Reset fields when switching modes
+        password = ""
+        confirmPassword = ""
     }
 
     LaunchedEffect(error) {
@@ -78,7 +82,7 @@ fun AuthScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            // Logo/Icon
+            // Logo
             Card(
                 modifier = Modifier
                     .size(90.dp)
@@ -98,8 +102,7 @@ fun AuthScreen(
                 text = if (isLoginMode) "CampusConnect" else "Create Account",
                 fontSize = 28.sp,
                 fontWeight = FontWeight.Bold,
-                color = Color.White,
-                letterSpacing = 1.sp
+                color = Color.White
             )
 
             Text(
@@ -189,7 +192,42 @@ fun AuthScreen(
                     unfocusedTextColor = Color.White
                 )
             )
-            Spacer(modifier = Modifier.height(12.dp))
+
+            // Confirm Password Field (Register Mode Only)
+            if (!isLoginMode) {
+                Spacer(modifier = Modifier.height(12.dp))
+                OutlinedTextField(
+                    value = confirmPassword,
+                    onValueChange = { confirmPassword = it; localError = null },
+                    label = { Text("Confirm Password", color = Color.White.copy(alpha = 0.7f)) },
+                    leadingIcon = {
+                        Icon(Icons.Default.Lock, contentDescription = null, tint = Color(0xFFE94560))
+                    },
+                    trailingIcon = {
+                        TextButton(
+                            onClick = { confirmPasswordVisible = !confirmPasswordVisible },
+                            modifier = Modifier.padding(0.dp)
+                        ) {
+                            Text(
+                                if (confirmPasswordVisible) "Hide" else "Show",
+                                color = Color(0xFFE94560),
+                                fontSize = 12.sp
+                            )
+                        }
+                    },
+                    visualTransformation = if (confirmPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = Color(0xFFE94560),
+                        unfocusedBorderColor = Color.White.copy(alpha = 0.3f),
+                        focusedLabelColor = Color(0xFFE94560),
+                        cursorColor = Color(0xFFE94560),
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White
+                    )
+                )
+            }
 
             Spacer(modifier = Modifier.height(24.dp))
 
@@ -209,14 +247,19 @@ fun AuthScreen(
                             localError = "Please enter your name"
                             return@Button
                         }
-                    }
-                    if (email.isBlank()) {
-                        localError = "Please enter your email"
-                        return@Button
-                    }
-                    if (password.isBlank()) {
-                        localError = "Please enter your password"
-                        return@Button
+                        if (email.isBlank()) {
+                            localError = "Please enter your email"
+                            return@Button
+                        }
+                    } else {
+                        if (email.isBlank()) {
+                            localError = "Please enter your email"
+                            return@Button
+                        }
+                        if (password.isBlank()) {
+                            localError = "Please enter your password"
+                            return@Button
+                        }
                     }
                     localError = null
 
@@ -275,7 +318,6 @@ fun AuthScreen(
                         confirmPassword = ""
                         password = ""
                         email = ""
-                        passwordVisible = false
                         localError = null
                     }
                 )

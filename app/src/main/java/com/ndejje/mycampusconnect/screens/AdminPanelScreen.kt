@@ -1,21 +1,31 @@
 package com.ndejje.mycampusconnect.screens
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.Query
 import com.ndejje.mycampusconnect.models.Announcement
 import com.ndejje.mycampusconnect.models.Club
 import com.ndejje.mycampusconnect.models.User
@@ -47,86 +57,136 @@ fun AdminPanelScreen(navController: NavController) {
     }
 
     Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Admin Panel") },
-                navigationIcon = {
-                    IconButton(onClick = { navController.navigateUp() }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.errorContainer
-                )
-            )
-        }
+        modifier = Modifier.fillMaxSize(),
+        containerColor = Color.Transparent
     ) { paddingValues ->
-        when {
-            !isAuthorized -> {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(paddingValues),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(
-                            imageVector = Icons.Default.Lock,
-                            contentDescription = "Unauthorized",
-                            modifier = Modifier.size(64.dp),
-                            tint = MaterialTheme.colorScheme.error
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(
+                            Color(0xFF1A1A2E),
+                            Color(0xFF16213E),
+                            Color(0xFF0F3460)
                         )
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Text(
-                            text = "Unauthorized Access",
-                            style = MaterialTheme.typography.headlineSmall,
-                            color = MaterialTheme.colorScheme.error
-                        )
-                        Text(
-                            text = "You don't have permission to access this page.",
-                            style = MaterialTheme.typography.bodyLarge
-                        )
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Button(onClick = { navController.navigateUp() }) {
-                            Text("Go Back")
+                    )
+                )
+        ) {
+            when {
+                !isAuthorized -> {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(paddingValues),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(
+                                imageVector = Icons.Default.Lock,
+                                contentDescription = "Unauthorized",
+                                modifier = Modifier.size(80.dp),
+                                tint = Color(0xFFE94560)
+                            )
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Text(
+                                text = "Unauthorized Access",
+                                fontSize = 24.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
+                            )
+                            Text(
+                                text = "You don't have permission to access this page.",
+                                fontSize = 14.sp,
+                                color = Color.White.copy(alpha = 0.6f)
+                            )
+                            Spacer(modifier = Modifier.height(24.dp))
+                            Button(
+                                onClick = { navController.navigateUp() },
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE94560)),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Text("Go Back")
+                            }
                         }
                     }
                 }
-            }
-            else -> {
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(paddingValues)
-                ) {
-                    TabRow(selectedTabIndex = selectedTab) {
-                        Tab(
-                            selected = selectedTab == 0,
-                            onClick = { selectedTab = 0 },
-                            text = { Text("Announcements") }
-                        )
-                        Tab(
-                            selected = selectedTab == 1,
-                            onClick = { selectedTab = 1 },
-                            text = { Text("Users") }
-                        )
-                        Tab(
-                            selected = selectedTab == 2,
-                            onClick = { selectedTab = 2 },
-                            text = { Text("Clubs") }
-                        )
-                        Tab(
-                            selected = selectedTab == 3,
-                            onClick = { selectedTab = 3 },
-                            text = { Text("Dashboard") }
-                        )
-                    }
+                else -> {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(paddingValues)
+                    ) {
+                        // Custom Top Bar
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 8.dp, vertical = 12.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            IconButton(onClick = { navController.navigateUp() }) {
+                                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
+                            }
 
-                    when (selectedTab) {
-                        0 -> AnnouncementsManagement()
-                        1 -> UsersManagement()
-                        2 -> ClubsManagement()
-                        3 -> AdminDashboard()
+                            Text(
+                                text = "Admin Panel",
+                                fontSize = 22.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
+                            )
+
+                            Box(modifier = Modifier.size(48.dp))
+                        }
+
+                        // Modern Tab Row
+                        Surface(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp),
+                            shape = RoundedCornerShape(16.dp),
+                            color = Color.White.copy(alpha = 0.1f)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceEvenly
+                            ) {
+                                AdminTabButton(
+                                    title = "Stats",
+                                    icon = Icons.Default.DateRange,
+                                    selected = selectedTab == 0,
+                                    onClick = { selectedTab = 0 }
+                                )
+                                AdminTabButton(
+                                    title = "News",
+                                    icon = Icons.Default.Info,
+                                    selected = selectedTab == 1,
+                                    onClick = { selectedTab = 1 }
+                                )
+                                AdminTabButton(
+                                    title = "Users",
+                                    icon = Icons.Default.Person,
+                                    selected = selectedTab == 2,
+                                    onClick = { selectedTab = 2 }
+                                )
+                                AdminTabButton(
+                                    title = "Clubs",
+                                    icon = Icons.Default.Person,
+                                    selected = selectedTab == 3,
+                                    onClick = { selectedTab = 3 }
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        // Content
+                        when (selectedTab) {
+                            0 -> AdminDashboard()
+                            1 -> AnnouncementsManagement(navController)
+                            2 -> UsersManagement()
+                            3 -> ClubsManagement()
+                        }
                     }
                 }
             }
@@ -134,9 +194,174 @@ fun AdminPanelScreen(navController: NavController) {
     }
 }
 
+@Composable
+fun AdminTabButton(
+    title: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .clickable(onClick = onClick)
+            .padding(vertical = 12.dp)
+    ) {
+        Icon(
+            icon,
+            contentDescription = title,
+            tint = if (selected) Color(0xFFE94560) else Color.White.copy(alpha = 0.6f),
+            modifier = Modifier.size(24.dp)
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            title,
+            fontSize = 11.sp,
+            color = if (selected) Color(0xFFE94560) else Color.White.copy(alpha = 0.6f),
+            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal
+        )
+    }
+}
+
+@Composable
+fun AdminDashboard() {
+    var totalUsers by remember { mutableIntStateOf(0) }
+    var totalClubs by remember { mutableIntStateOf(0) }
+    var totalEvents by remember { mutableIntStateOf(0) }
+    var totalLostItems by remember { mutableIntStateOf(0) }
+    var isLoading by remember { mutableStateOf(true) }
+
+    val scope = rememberCoroutineScope()
+    val firestore = FirebaseFirestore.getInstance()
+
+    LaunchedEffect(Unit) {
+        scope.launch {
+            try {
+                val usersCount = firestore.collection("users").get().await().size()
+                val clubsCount = firestore.collection("clubs").get().await().size()
+                val eventsCount = firestore.collection("events").get().await().size()
+                val lostItemsCount = firestore.collection("lost_items").get().await().size()
+
+                totalUsers = usersCount
+                totalClubs = clubsCount
+                totalEvents = eventsCount
+                totalLostItems = lostItemsCount
+                isLoading = false
+            } catch (_: Exception) {
+                isLoading = false
+            }
+        }
+    }
+
+    if (isLoading) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator(color = Color(0xFFE94560))
+        }
+    } else {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            item {
+                Text(
+                    text = "Overview",
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+            }
+
+            item {
+                AdminStatsCard(
+                    title = "Total Users",
+                    value = totalUsers.toString(),
+                    icon = Icons.Default.Person,
+                    gradient = listOf(Color(0xFF667eea), Color(0xFF764ba2))
+                )
+            }
+
+            item {
+                AdminStatsCard(
+                    title = "Total Clubs",
+                    value = totalClubs.toString(),
+                    icon = Icons.Default.Person,
+                    gradient = listOf(Color(0xFFE94560), Color(0xFFF5A623))
+                )
+            }
+
+            item {
+                AdminStatsCard(
+                    title = "Total Events",
+                    value = totalEvents.toString(),
+                    icon = Icons.Default.DateRange,
+                    gradient = listOf(Color(0xFF2196F3), Color(0xFF21CBF3))
+                )
+            }
+
+            item {
+                AdminStatsCard(
+                    title = "Lost & Found",
+                    value = totalLostItems.toString(),
+                    icon = Icons.Default.Search,
+                    gradient = listOf(Color(0xFF4CAF50), Color(0xFF8BC34A))
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun AdminStatsCard(
+    title: String,
+    value: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    gradient: List<Color>
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = Color.White.copy(alpha = 0.08f)
+        )
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(50.dp)
+                        .clip(CircleShape)
+                        .background(Brush.horizontalGradient(gradient)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(icon, contentDescription = title, tint = Color.White, modifier = Modifier.size(24.dp))
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+                Column {
+                    Text(title, fontSize = 14.sp, color = Color.White.copy(alpha = 0.6f))
+                    Text(value, fontSize = 28.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                }
+            }
+
+            Icon(
+                Icons.AutoMirrored.Filled.ArrowForward,
+                contentDescription = null,
+                tint = Color.White.copy(alpha = 0.3f)
+            )
+        }
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AnnouncementsManagement() {
+fun AnnouncementsManagement(navController: NavController) {
     var announcements by remember { mutableStateOf<List<Announcement>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
     var showCreateDialog by remember { mutableStateOf(false) }
@@ -149,7 +374,7 @@ fun AnnouncementsManagement() {
             isLoading = true
             try {
                 val snapshot = firestore.collection("announcements")
-                    .orderBy("createdAt", com.google.firebase.firestore.Query.Direction.DESCENDING)
+                    .orderBy("createdAt", Query.Direction.DESCENDING)
                     .get()
                     .await()
                 announcements = snapshot.documents.mapNotNull { doc ->
@@ -166,9 +391,7 @@ fun AnnouncementsManagement() {
         loadAnnouncements()
     }
 
-    Column(
-        modifier = Modifier.fillMaxSize()
-    ) {
+    Column(modifier = Modifier.fillMaxSize()) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -177,37 +400,39 @@ fun AnnouncementsManagement() {
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "Manage Announcements",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold
+                text = "Announcements",
+                fontSize = 18.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = Color.White
             )
             Button(
-                onClick = { showCreateDialog = true }
+                onClick = { showCreateDialog = true },
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE94560)),
+                shape = RoundedCornerShape(12.dp)
             ) {
                 Icon(Icons.Default.Add, contentDescription = "Create")
                 Spacer(modifier = Modifier.width(4.dp))
-                Text("New")
+                Text("New", color = Color.White)
             }
         }
 
         when {
             isLoading -> {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator()
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(color = Color(0xFFE94560))
                 }
             }
             announcements.isEmpty() -> {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("No announcements yet")
-                        Button(onClick = { showCreateDialog = true }) {
-                            Text("Create First Announcement")
+                        Icon(Icons.Default.Info, null, modifier = Modifier.size(64.dp), tint = Color.White.copy(alpha = 0.3f))
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text("No announcements yet", color = Color.White.copy(alpha = 0.6f))
+                        Button(
+                            onClick = { showCreateDialog = true },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE94560))
+                        ) {
+                            Text("Create First Announcement", color = Color.White)
                         }
                     }
                 }
@@ -219,7 +444,7 @@ fun AnnouncementsManagement() {
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     items(announcements) { announcement ->
-                        AnnouncementAdminCard(
+                        AdminAnnouncementCard(
                             announcement = announcement,
                             onDelete = {
                                 scope.launch {
@@ -249,14 +474,16 @@ fun AnnouncementsManagement() {
 }
 
 @Composable
-fun AnnouncementAdminCard(
+fun AdminAnnouncementCard(
     announcement: Announcement,
     onDelete: () -> Unit
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        elevation = CardDefaults.cardElevation(2.dp),
-        shape = RoundedCornerShape(12.dp)
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = Color.White.copy(alpha = 0.08f)
+        )
     ) {
         Column(
             modifier = Modifier
@@ -265,34 +492,43 @@ fun AnnouncementAdminCard(
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Top
             ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = announcement.title,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = "By: ${announcement.authorName}",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                Row(
+                    modifier = Modifier.weight(1f),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFFE94560).copy(alpha = 0.2f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(Icons.Default.Info, null, tint = Color(0xFFE94560), modifier = Modifier.size(20.dp))
+                    }
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column {
+                        Text(
+                            text = announcement.title,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color.White
+                        )
+                        Text(
+                            text = "By: ${announcement.authorName}",
+                            fontSize = 11.sp,
+                            color = Color.White.copy(alpha = 0.5f)
+                        )
+                    }
                 }
 
-                Surface(
-                    shape = RoundedCornerShape(8.dp),
-                    color = when (announcement.targetRole) {
-                        "admin" -> MaterialTheme.colorScheme.errorContainer
-                        "club_leader" -> MaterialTheme.colorScheme.primaryContainer
-                        else -> MaterialTheme.colorScheme.secondaryContainer
-                    }
+                IconButton(
+                    onClick = onDelete,
+                    modifier = Modifier.size(36.dp)
                 ) {
-                    Text(
-                        text = announcement.targetRole.uppercase(),
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                        style = MaterialTheme.typography.labelSmall
-                    )
+                    Icon(Icons.Default.Delete, contentDescription = "Delete", tint = Color(0xFFE94560))
                 }
             }
 
@@ -300,149 +536,22 @@ fun AnnouncementAdminCard(
 
             Text(
                 text = announcement.content,
-                style = MaterialTheme.typography.bodyMedium
+                fontSize = 13.sp,
+                color = Color.White.copy(alpha = 0.7f),
+                maxLines = 3,
+                overflow = TextOverflow.Ellipsis
             )
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(
-                    text = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
-                        .format(announcement.createdAt),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-
-                TextButton(
-                    onClick = onDelete,
-                    colors = ButtonDefaults.textButtonColors(
-                        contentColor = MaterialTheme.colorScheme.error
-                    )
-                ) {
-                    Icon(Icons.Default.Delete, contentDescription = "Delete")
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("Delete")
-                }
-            }
+            Text(
+                text = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
+                    .format(announcement.createdAt),
+                fontSize = 10.sp,
+                color = Color.White.copy(alpha = 0.4f)
+            )
         }
     }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun CreateAnnouncementDialog(
-    onDismiss: () -> Unit,
-    onCreated: () -> Unit
-) {
-    var title by remember { mutableStateOf("") }
-    var content by remember { mutableStateOf("") }
-    var targetRole by remember { mutableStateOf("all") }
-    var isCreating by remember { mutableStateOf(false) }
-
-    val scope = rememberCoroutineScope()
-    val firestore = FirebaseFirestore.getInstance()
-    val auth = FirebaseAuth.getInstance()
-    val currentUser = auth.currentUser
-
-    fun createAnnouncement() {
-        scope.launch {
-            if (currentUser == null) return@launch
-            isCreating = true
-
-            try {
-                val userDoc = firestore.collection("users").document(currentUser.uid).get().await()
-                val userName = userDoc.getString("name") ?: currentUser.email ?: "Admin"
-
-                val announcement = Announcement(
-                    announcementId = "",
-                    title = title,
-                    content = content,
-                    authorId = currentUser.uid,
-                    authorName = userName,
-                    targetRole = targetRole,
-                    createdAt = System.currentTimeMillis()
-                )
-
-                firestore.collection("announcements").add(announcement).await()
-                isCreating = false
-                onCreated()
-            } catch (_: Exception) {
-                isCreating = false
-            }
-        }
-    }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Create Announcement") },
-        text = {
-            Column(
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                OutlinedTextField(
-                    value = title,
-                    onValueChange = { title = it },
-                    label = { Text("Title") },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true
-                )
-
-                OutlinedTextField(
-                    value = content,
-                    onValueChange = { content = it },
-                    label = { Text("Content") },
-                    modifier = Modifier.fillMaxWidth(),
-                    minLines = 3
-                )
-
-                Text("Target Audience", style = MaterialTheme.typography.labelMedium)
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    FilterChip(
-                        selected = targetRole == "all",
-                        onClick = { targetRole = "all" },
-                        label = { Text("All Users") }
-                    )
-                    FilterChip(
-                        selected = targetRole == "students",
-                        onClick = { targetRole = "students" },
-                        label = { Text("Students Only") }
-                    )
-                    FilterChip(
-                        selected = targetRole == "club_leaders",
-                        onClick = { targetRole = "club_leaders" },
-                        label = { Text("Club Leaders") }
-                    )
-                    FilterChip(
-                        selected = targetRole == "admin",
-                        onClick = { targetRole = "admin" },
-                        label = { Text("Admins Only") }
-                    )
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = { createAnnouncement() },
-                enabled = title.isNotBlank() && content.isNotBlank() && !isCreating
-            ) {
-                if (isCreating) {
-                    CircularProgressIndicator(modifier = Modifier.size(20.dp))
-                } else {
-                    Text("Post")
-                }
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancel")
-            }
-        }
-    )
 }
 
 @Composable
@@ -458,7 +567,7 @@ fun UsersManagement() {
             isLoading = true
             try {
                 val snapshot = firestore.collection("users")
-                    .orderBy("createdAt", com.google.firebase.firestore.Query.Direction.DESCENDING)
+                    .orderBy("createdAt", Query.Direction.DESCENDING)
                     .get()
                     .await()
                 users = snapshot.documents.mapNotNull { doc ->
@@ -471,31 +580,24 @@ fun UsersManagement() {
         }
     }
 
-    Column(
-        modifier = Modifier.fillMaxSize()
-    ) {
+    Column(modifier = Modifier.fillMaxSize()) {
         Text(
-            text = "Manage Users",
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.Bold,
+            text = "User Management",
+            fontSize = 18.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = Color.White,
             modifier = Modifier.padding(16.dp)
         )
 
         when {
             isLoading -> {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator()
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(color = Color(0xFFE94560))
                 }
             }
             users.isEmpty() -> {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text("No users found")
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text("No users found", color = Color.White.copy(alpha = 0.6f))
                 }
             }
             else -> {
@@ -505,7 +607,7 @@ fun UsersManagement() {
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     items(users) { user ->
-                        UserAdminCard(user = user)
+                        AdminUserCard(user = user)
                     }
                 }
             }
@@ -514,7 +616,7 @@ fun UsersManagement() {
 }
 
 @Composable
-fun UserAdminCard(user: User) {
+fun AdminUserCard(user: User) {
     var currentRole by remember { mutableStateOf(user.role) }
     var isUpdating by remember { mutableStateOf(false) }
     var expanded by remember { mutableStateOf(false) }
@@ -540,7 +642,10 @@ fun UserAdminCard(user: User) {
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        elevation = CardDefaults.cardElevation(2.dp)
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = Color.White.copy(alpha = 0.08f)
+        )
     ) {
         Row(
             modifier = Modifier
@@ -549,49 +654,82 @@ fun UserAdminCard(user: User) {
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = user.name,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    text = user.email,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Text(
-                    text = "Joined: ${SimpleDateFormat("MMM dd, yyyy", Locale.getDefault()).format(user.createdAt)}",
-                    style = MaterialTheme.typography.labelSmall
-                )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(48.dp)
+                        .clip(CircleShape)
+                        .background(
+                            when (currentRole) {
+                                "admin" -> Color(0xFFE94560)
+                                "club_leader" -> Color(0xFF2196F3)
+                                else -> Color(0xFF4CAF50)
+                            }.copy(alpha = 0.2f)
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        user.name.take(2).uppercase(),
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = when (currentRole) {
+                            "admin" -> Color(0xFFE94560)
+                            "club_leader" -> Color(0xFF2196F3)
+                            else -> Color(0xFF4CAF50)
+                        }
+                    )
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+                Column {
+                    Text(
+                        text = user.name,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color.White
+                    )
+                    Text(
+                        text = user.email,
+                        fontSize = 11.sp,
+                        color = Color.White.copy(alpha = 0.5f)
+                    )
+                    Text(
+                        text = "Joined: ${SimpleDateFormat("MMM dd, yyyy", Locale.getDefault()).format(user.createdAt)}",
+                        fontSize = 10.sp,
+                        color = Color.White.copy(alpha = 0.4f)
+                    )
+                }
             }
 
             if (isUpdating) {
-                CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                CircularProgressIndicator(modifier = Modifier.size(24.dp), color = Color(0xFFE94560))
             } else {
-                // Role dropdown
                 Box {
                     OutlinedButton(
-                        onClick = { expanded = true }
+                        onClick = { expanded = true },
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = Color(0xFFE94560)
+                        )
                     ) {
-                        Text(currentRole.uppercase())
-                        Icon(Icons.Default.ArrowDropDown, contentDescription = null)
+                        Text(currentRole.uppercase(), fontSize = 11.sp)
+                        Icon(Icons.Default.ArrowDropDown, contentDescription = null, modifier = Modifier.size(16.dp))
                     }
 
                     DropdownMenu(
                         expanded = expanded,
-                        onDismissRequest = { expanded = false }
+                        onDismissRequest = { expanded = false },
+                        modifier = Modifier.background(Color(0xFF16213E))
                     ) {
                         DropdownMenuItem(
-                            text = { Text("STUDENT") },
+                            text = { Text("STUDENT", color = Color.White) },
                             onClick = { updateRole("student") }
                         )
                         DropdownMenuItem(
-                            text = { Text("CLUB LEADER") },
+                            text = { Text("CLUB LEADER", color = Color.White) },
                             onClick = { updateRole("club_leader") }
                         )
                         DropdownMenuItem(
-                            text = { Text("ADMIN") },
+                            text = { Text("ADMIN", color = Color.White) },
                             onClick = { updateRole("admin") }
                         )
                     }
@@ -632,9 +770,7 @@ fun ClubsManagement() {
         loadClubs()
     }
 
-    Column(
-        modifier = Modifier.fillMaxSize()
-    ) {
+    Column(modifier = Modifier.fillMaxSize()) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -643,32 +779,41 @@ fun ClubsManagement() {
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "Manage Clubs",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold
+                text = "Club Management",
+                fontSize = 18.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = Color.White
             )
-            Button(onClick = { showCreateDialog = true }) {
+            Button(
+                onClick = { showCreateDialog = true },
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE94560)),
+                shape = RoundedCornerShape(12.dp)
+            ) {
                 Icon(Icons.Default.Add, contentDescription = "Create")
                 Spacer(modifier = Modifier.width(4.dp))
-                Text("New Club")
+                Text("New Club", color = Color.White)
             }
         }
 
         when {
             isLoading -> {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator()
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(color = Color(0xFFE94560))
                 }
             }
             clubs.isEmpty() -> {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text("No clubs found")
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(Icons.Default.Person, null, modifier = Modifier.size(64.dp), tint = Color.White.copy(alpha = 0.3f))
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text("No clubs found", color = Color.White.copy(alpha = 0.6f))
+                        Button(
+                            onClick = { showCreateDialog = true },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE94560))
+                        ) {
+                            Text("Create First Club", color = Color.White)
+                        }
+                    }
                 }
             }
             else -> {
@@ -678,7 +823,7 @@ fun ClubsManagement() {
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     items(clubs) { club ->
-                        ClubAdminCard(
+                        AdminClubCard(
                             club = club,
                             onDelete = {
                                 scope.launch {
@@ -705,10 +850,24 @@ fun ClubsManagement() {
 }
 
 @Composable
-fun ClubAdminCard(club: Club, onDelete: () -> Unit) {
+fun AdminClubCard(club: Club, onDelete: () -> Unit) {
+    val categoryIcon = when (club.category) {
+        "COMMUNITY_SERVICE" -> "🤝"
+        "LEADERSHIP" -> "👥"
+        "CULTURAL" -> "🎭"
+        "RELIGIOUS" -> "⛪"
+        "PROFESSIONAL" -> "💼"
+        "SPORTS" -> "⚽"
+        "SPECIAL_INTEREST" -> "⭐"
+        else -> "🏛️"
+    }
+
     Card(
         modifier = Modifier.fillMaxWidth(),
-        elevation = CardDefaults.cardElevation(2.dp)
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = Color.White.copy(alpha = 0.08f)
+        )
     ) {
         Row(
             modifier = Modifier
@@ -717,33 +876,137 @@ fun ClubAdminCard(club: Club, onDelete: () -> Unit) {
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = club.name,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    text = club.category,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.primary
-                )
-                Text(
-                    text = "${club.memberCount} members",
-                    style = MaterialTheme.typography.labelSmall
-                )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(48.dp)
+                        .clip(CircleShape)
+                        .background(Brush.horizontalGradient(listOf(Color(0xFFE94560), Color(0xFFF5A623)))),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(categoryIcon, fontSize = 24.sp)
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+                Column {
+                    Text(
+                        text = club.name,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color.White
+                    )
+                    Text(
+                        text = "${club.memberCount} members",
+                        fontSize = 11.sp,
+                        color = Color.White.copy(alpha = 0.5f)
+                    )
+                }
             }
 
             IconButton(
                 onClick = onDelete,
-                colors = IconButtonDefaults.iconButtonColors(
-                    contentColor = MaterialTheme.colorScheme.error
-                )
+                modifier = Modifier.size(36.dp)
             ) {
-                Icon(Icons.Default.Delete, contentDescription = "Delete")
+                Icon(Icons.Default.Delete, contentDescription = "Delete", tint = Color(0xFFE94560))
             }
         }
     }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun CreateAnnouncementDialog(
+    onDismiss: () -> Unit,
+    onCreated: () -> Unit
+) {
+    var title by remember { mutableStateOf("") }
+    var content by remember { mutableStateOf("") }
+    var isCreating by remember { mutableStateOf(false) }
+
+    val scope = rememberCoroutineScope()
+    val firestore = FirebaseFirestore.getInstance()
+    val auth = FirebaseAuth.getInstance()
+    val currentUser = auth.currentUser
+
+    fun createAnnouncement() {
+        scope.launch {
+            if (currentUser == null) return@launch
+            isCreating = true
+
+            try {
+                val userDoc = firestore.collection("users").document(currentUser.uid).get().await()
+                val userName = userDoc.getString("name") ?: currentUser.email ?: "Admin"
+
+                val announcement = Announcement(
+                    announcementId = "",
+                    title = title,
+                    content = content,
+                    authorId = currentUser.uid,
+                    authorName = userName,
+                    createdAt = System.currentTimeMillis()
+                )
+
+                firestore.collection("announcements").add(announcement).await()
+                isCreating = false
+                onCreated()
+            } catch (_: Exception) {
+                isCreating = false
+            }
+        }
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Create Announcement", color = Color.White) },
+        text = {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                OutlinedTextField(
+                    value = title,
+                    onValueChange = { title = it },
+                    label = { Text("Title") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = Color(0xFFE94560),
+                        focusedLabelColor = Color(0xFFE94560),
+                        cursorColor = Color(0xFFE94560)
+                    )
+                )
+
+                OutlinedTextField(
+                    value = content,
+                    onValueChange = { content = it },
+                    label = { Text("Content") },
+                    modifier = Modifier.fillMaxWidth(),
+                    minLines = 3,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = Color(0xFFE94560),
+                        focusedLabelColor = Color(0xFFE94560),
+                        cursorColor = Color(0xFFE94560)
+                    )
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { createAnnouncement() },
+                enabled = title.isNotBlank() && content.isNotBlank() && !isCreating
+            ) {
+                if (isCreating) {
+                    CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color(0xFFE94560))
+                } else {
+                    Text("Post", color = Color(0xFFE94560))
+                }
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel", color = Color.White.copy(alpha = 0.6f))
+            }
+        },
+        containerColor = Color(0xFF16213E)
+    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -769,7 +1032,7 @@ fun CreateClubDialog(
                     clubId = "",
                     name = name,
                     description = description,
-                    category = category,
+                    category = category.uppercase().replace(" ", "_"),
                     leaderId = auth.currentUser?.uid ?: "",
                     memberCount = 1,
                     createdAt = System.currentTimeMillis()
@@ -786,7 +1049,7 @@ fun CreateClubDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Create New Club") },
+        title = { Text("Create New Club", color = Color.White) },
         text = {
             Column(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -796,7 +1059,12 @@ fun CreateClubDialog(
                     onValueChange = { name = it },
                     label = { Text("Club Name") },
                     modifier = Modifier.fillMaxWidth(),
-                    singleLine = true
+                    singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = Color(0xFFE94560),
+                        focusedLabelColor = Color(0xFFE94560),
+                        cursorColor = Color(0xFFE94560)
+                    )
                 )
 
                 OutlinedTextField(
@@ -805,7 +1073,12 @@ fun CreateClubDialog(
                     label = { Text("Category") },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
-                    placeholder = { Text("e.g., Academic, Sports, Arts") }
+                    placeholder = { Text("e.g., Academic, Sports, Arts") },
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = Color(0xFFE94560),
+                        focusedLabelColor = Color(0xFFE94560),
+                        cursorColor = Color(0xFFE94560)
+                    )
                 )
 
                 OutlinedTextField(
@@ -813,7 +1086,12 @@ fun CreateClubDialog(
                     onValueChange = { description = it },
                     label = { Text("Description") },
                     modifier = Modifier.fillMaxWidth(),
-                    minLines = 3
+                    minLines = 3,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = Color(0xFFE94560),
+                        focusedLabelColor = Color(0xFFE94560),
+                        cursorColor = Color(0xFFE94560)
+                    )
                 )
             }
         },
@@ -823,146 +1101,17 @@ fun CreateClubDialog(
                 enabled = name.isNotBlank() && description.isNotBlank() && category.isNotBlank() && !isCreating
             ) {
                 if (isCreating) {
-                    CircularProgressIndicator(modifier = Modifier.size(20.dp))
+                    CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color(0xFFE94560))
                 } else {
-                    Text("Create")
+                    Text("Create", color = Color(0xFFE94560))
                 }
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Cancel")
+                Text("Cancel", color = Color.White.copy(alpha = 0.6f))
             }
-        }
+        },
+        containerColor = Color(0xFF16213E)
     )
-}
-
-@Composable
-fun AdminDashboard() {
-    var totalUsers by remember { mutableIntStateOf(0) }
-    var totalClubs by remember { mutableIntStateOf(0) }
-    var totalEvents by remember { mutableIntStateOf(0) }
-    var totalLostItems by remember { mutableIntStateOf(0) }
-    var isLoading by remember { mutableStateOf(true) }
-
-    val scope = rememberCoroutineScope()
-    val firestore = FirebaseFirestore.getInstance()
-
-    LaunchedEffect(Unit) {
-        scope.launch {
-            try {
-                val usersCount = firestore.collection("users").get().await().size()
-                val clubsCount = firestore.collection("clubs").get().await().size()
-                val eventsCount = firestore.collection("events").get().await().size()
-                val lostItemsCount = firestore.collection("lost_items").get().await().size()
-
-                totalUsers = usersCount
-                totalClubs = clubsCount
-                totalEvents = eventsCount
-                totalLostItems = lostItemsCount
-                isLoading = false
-            } catch (_: Exception) {
-                isLoading = false
-            }
-        }
-    }
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp)
-    ) {
-        Text(
-            text = "Dashboard Overview",
-            style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(bottom = 16.dp)
-        )
-
-        if (isLoading) {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                CircularProgressIndicator()
-            }
-        } else {
-            Column(
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                DashboardCard(
-                    title = "Total Users",
-                    value = totalUsers.toString(),
-                    icon = Icons.Default.Person,
-                    color = MaterialTheme.colorScheme.primary
-                )
-
-                DashboardCard(
-                    title = "Total Clubs",
-                    value = totalClubs.toString(),
-                    icon = Icons.Default.Person,
-                    color = MaterialTheme.colorScheme.secondary
-                )
-
-                DashboardCard(
-                    title = "Total Events",
-                    value = totalEvents.toString(),
-                    icon = Icons.Default.DateRange,
-                    color = MaterialTheme.colorScheme.tertiary
-                )
-
-                DashboardCard(
-                    title = "Lost & Found Items",
-                    value = totalLostItems.toString(),
-                    icon = Icons.Default.Search,
-                    color = MaterialTheme.colorScheme.error
-                )
-            }
-        }
-    }
-}
-
-@Composable
-fun DashboardCard(
-    title: String,
-    value: String,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    color: androidx.compose.ui.graphics.Color
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        elevation = CardDefaults.cardElevation(4.dp),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = color.copy(alpha = 0.1f)
-        )
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(20.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleMedium,
-                    color = color
-                )
-                Text(
-                    text = value,
-                    style = MaterialTheme.typography.displayMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = color
-                )
-            }
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                modifier = Modifier.size(48.dp),
-                tint = color
-            )
-        }
-    }
 }

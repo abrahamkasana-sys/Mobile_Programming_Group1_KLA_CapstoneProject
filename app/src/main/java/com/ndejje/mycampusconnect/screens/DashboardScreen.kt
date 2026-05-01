@@ -45,6 +45,7 @@ fun MainDashboardScreen(navController: NavController) {
     val currentUser = auth.currentUser
     var popularClubs by remember { mutableStateOf<List<Club>>(emptyList()) }
     var loadingClubs by remember { mutableStateOf(true) }
+    var userRole by remember { mutableStateOf("student") }
 
     var userName by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(true) }
@@ -69,6 +70,7 @@ fun MainDashboardScreen(navController: NavController) {
                 if (userId != null) {
                     val userDoc = firestore.collection("users").document(userId).get().await()
                     userName = userDoc.getString("name") ?: currentUser.displayName ?: "Student"
+                    userRole = userDoc.getString("role") ?: "student"
                 }
 
                 // Load real events from Firestore
@@ -192,6 +194,14 @@ fun MainDashboardScreen(navController: NavController) {
                         }
 
                         Row {
+                            if (userRole == "admin") {
+                                IconButton(
+                                    onClick = { navController.navigate("admin_panel") },
+                                    modifier = Modifier.background(Color.White.copy(alpha = 0.1f), CircleShape)
+                                ) {
+                                    Icon(Icons.Default.Settings, "Admin Panel", tint = Color.White)
+                                }
+                            }
                              IconButton(
                                 onClick = { navController.navigate("notifications") },
                                 modifier = Modifier.background(Color.White.copy(alpha = 0.1f), CircleShape)
@@ -672,27 +682,3 @@ fun MainDashboardScreen(navController: NavController) {
     }
 }
 
-suspend fun addSampleNotifications(userId: String) {
-    val firestore = FirebaseFirestore.getInstance()
-    val notifications = listOf(
-        mapOf(
-            "title" to "Welcome to CampusConnect!",
-            "message" to "Thank you for joining. Stay updated with campus events!",
-            "type" to "announcement",
-            "read" to false,
-            "createdAt" to System.currentTimeMillis(),
-            "userId" to userId
-        ),
-        mapOf(
-            "title" to "Tech Career Fair",
-            "message" to "Don't miss the Tech Career Fair this Friday!",
-            "type" to "event",
-            "read" to false,
-            "createdAt" to System.currentTimeMillis() - 86400000,
-            "userId" to userId
-        )
-    )
-    for (notification in notifications) {
-        firestore.collection("notifications").add(notification).await()
-    }
-}

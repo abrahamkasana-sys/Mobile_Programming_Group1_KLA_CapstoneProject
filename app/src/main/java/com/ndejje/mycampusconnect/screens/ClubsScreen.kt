@@ -160,15 +160,6 @@ fun ClubsScreen(navController: NavController) {
                         color = Color.White
                     )
 
-                    if (userRole == "admin") {
-                        IconButton(
-                            onClick = { navController.navigate("create_club") },
-                            modifier = Modifier
-                                .background(Color.White.copy(alpha = 0.1f), CircleShape)
-                        ) {
-                            Icon(Icons.Default.Add, contentDescription = "Create Club", tint = Color.White)
-                        }
-                    }
                 }
 
                 // Search Bar
