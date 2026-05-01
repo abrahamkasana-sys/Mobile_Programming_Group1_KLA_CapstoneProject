@@ -31,12 +31,11 @@ import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import java.util.*
-import android.widget.Toast
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainDashboardScreen(navController: NavController) {
-    val context = LocalContext.current  // ADD THIS LINE - fixes the context error
+    val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val firestore = FirebaseFirestore.getInstance()
     val auth = FirebaseAuth.getInstance()

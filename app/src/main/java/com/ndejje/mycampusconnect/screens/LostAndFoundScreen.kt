@@ -1,51 +1,57 @@
 package com.ndejje.mycampusconnect.screens
 
-import android.net.Uri
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
+import android.graphics.BitmapFactory
+import android.util.Base64
+import android.widget.Toast
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.storage.FirebaseStorage
 import com.ndejje.mycampusconnect.models.LostItem
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import java.text.SimpleDateFormat
 import java.util.*
-import androidx.compose.material.icons.filled.*
-import androidx.compose.foundation.background
-import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LostAndFoundScreen(navController: NavController) {
     var lostItems by remember { mutableStateOf<List<LostItem>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
-    var selectedFilter by remember { mutableStateOf("all") } // all, lost, found
+    var selectedFilter by remember { mutableStateOf("all") }
+    var refreshTrigger by remember { mutableIntStateOf(0) }
 
     val scope = rememberCoroutineScope()
     val firestore = FirebaseFirestore.getInstance()
-    val auth = FirebaseAuth.getInstance()
-    val currentUser = auth.currentUser
 
-    LaunchedEffect(selectedFilter) {
+    fun loadItems() {
         scope.launch {
             isLoading = true
             try {
@@ -67,104 +73,146 @@ fun LostAndFoundScreen(navController: NavController) {
         }
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Lost & Found") },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer
-                ),
-                actions = {
-                    IconButton(onClick = { navController.navigate("post_lost_item") }) {
-                        Icon(Icons.Default.Add, contentDescription = "Post Item")
-                    }
-                }
-            )
-        },
-        floatingActionButton = {
-            FloatingActionButton(
-                onClick = { navController.navigate("post_lost_item") },
-                containerColor = MaterialTheme.colorScheme.primary
-            ) {
-                Icon(Icons.Default.Add, contentDescription = "Post")
+    LaunchedEffect(selectedFilter, refreshTrigger) {
+        loadItems()
+    }
+
+    // Listen for navigation return (refresh when coming back)
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                refreshTrigger++
             }
         }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+
+    Scaffold(
+        modifier = Modifier.fillMaxSize(),
+        containerColor = Color.Transparent
     ) { paddingValues ->
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues)
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(
+                            Color(0xFF1A1A2E),
+                            Color(0xFF16213E),
+                            Color(0xFF0F3460)
+                        )
+                    )
+                )
         ) {
-            // Filter tabs
-            TabRow(selectedTabIndex = when (selectedFilter) {
-                "all" -> 0
-                "lost" -> 1
-                "found" -> 2
-                else -> 0
-            }) {
-                Tab(
-                    selected = selectedFilter == "all",
-                    onClick = { selectedFilter = "all" },
-                    text = { Text("All") }
-                )
-                Tab(
-                    selected = selectedFilter == "lost",
-                    onClick = { selectedFilter = "lost" },
-                    text = { Text("Lost") }
-                )
-                Tab(
-                    selected = selectedFilter == "found",
-                    onClick = { selectedFilter = "found" },
-                    text = { Text("Found") }
-                )
-            }
-
-            when {
-                isLoading -> {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues)
+            ) {
+                // Header
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Lost & Found",
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
+                    FloatingActionButton(
+                        onClick = { navController.navigate("post_lost_item") },
+                        containerColor = Color(0xFFE94560),
+                        shape = CircleShape,
+                        modifier = Modifier.size(48.dp)
                     ) {
-                        CircularProgressIndicator()
+                        Icon(Icons.Default.Add, contentDescription = "Post", tint = Color.White)
                     }
                 }
-                lostItems.isEmpty() -> {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Icon(
-                                imageVector = Icons.Default.Search,
-                                contentDescription = null,
-                                modifier = Modifier.size(64.dp),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Spacer(modifier = Modifier.height(16.dp))
-                            Text(
-                                text = "No items found",
-                                style = MaterialTheme.typography.bodyLarge
-                            )
-                            Text(
-                                text = "Tap + to post a lost or found item",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+
+                // Filter Tabs
+                ScrollableTabRow(
+                    selectedTabIndex = when (selectedFilter) {
+                        "all" -> 0
+                        "lost" -> 1
+                        "found" -> 2
+                        else -> 0
+                    },
+                    containerColor = Color.Transparent,
+                    edgePadding = 0.dp
+                ) {
+                    Tab(
+                        selected = selectedFilter == "all",
+                        onClick = { selectedFilter = "all" },
+                        text = { Text("All", color = Color.White) }
+                    )
+                    Tab(
+                        selected = selectedFilter == "lost",
+                        onClick = { selectedFilter = "lost" },
+                        text = { Text("Lost", color = Color.White) }
+                    )
+                    Tab(
+                        selected = selectedFilter == "found",
+                        onClick = { selectedFilter = "found" },
+                        text = { Text("Found", color = Color.White) }
+                    )
+                }
+
+                // Content
+                when {
+                    isLoading -> {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            CircularProgressIndicator(color = Color(0xFFE94560))
                         }
                     }
-                }
-                else -> {
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        items(lostItems) { item ->
-                            LostItemCard(
-                                item = item,
-                                navController = navController,
-                                currentUserId = currentUser?.uid
-                            )
+                    lostItems.isEmpty() -> {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Icon(
+                                    imageVector = Icons.Default.Search,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(64.dp),
+                                    tint = Color.White.copy(alpha = 0.5f)
+                                )
+                                Spacer(modifier = Modifier.height(16.dp))
+                                Text(
+                                    text = "No items found",
+                                    fontSize = 16.sp,
+                                    color = Color.White.copy(alpha = 0.7f)
+                                )
+                                Text(
+                                    text = "Tap + to post a lost or found item",
+                                    fontSize = 12.sp,
+                                    color = Color.White.copy(alpha = 0.5f)
+                                )
+                            }
+                        }
+                    }
+                    else -> {
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize(),
+                            contentPadding = PaddingValues(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            items(lostItems) { item ->
+                                LostItemCard(
+                                    item = item,
+                                    navController = navController
+                                )
+                            }
                         }
                     }
                 }
@@ -176,8 +224,7 @@ fun LostAndFoundScreen(navController: NavController) {
 @Composable
 fun LostItemCard(
     item: LostItem,
-    navController: NavController,
-    currentUserId: String?
+    navController: NavController
 ) {
     Card(
         modifier = Modifier
@@ -185,8 +232,10 @@ fun LostItemCard(
             .clickable {
                 navController.navigate("lost_item_detail/${item.itemId}")
             },
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
-        shape = RoundedCornerShape(12.dp)
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = Color.White.copy(alpha = 0.1f)
+        )
     ) {
         Column(
             modifier = Modifier
@@ -201,27 +250,25 @@ fun LostItemCard(
             ) {
                 Text(
                     text = item.title,
-                    style = MaterialTheme.typography.titleLarge,
+                    fontSize = 18.sp,
                     fontWeight = FontWeight.Bold,
+                    color = Color.White,
                     modifier = Modifier.weight(1f)
                 )
 
                 Surface(
                     shape = RoundedCornerShape(8.dp),
                     color = if (item.status == "lost")
-                        MaterialTheme.colorScheme.errorContainer
+                        Color(0xFFE94560).copy(alpha = 0.2f)
                     else
-                        MaterialTheme.colorScheme.primaryContainer
+                        Color(0xFF4CAF50).copy(alpha = 0.2f)
                 ) {
                     Text(
                         text = if (item.status == "lost") "LOST" else "FOUND",
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                        style = MaterialTheme.typography.labelSmall,
+                        fontSize = 10.sp,
                         fontWeight = FontWeight.Bold,
-                        color = if (item.status == "lost")
-                            MaterialTheme.colorScheme.error
-                        else
-                            MaterialTheme.colorScheme.primary
+                        color = if (item.status == "lost") Color(0xFFE94560) else Color(0xFF4CAF50)
                     )
                 }
             }
@@ -231,7 +278,8 @@ fun LostItemCard(
             // Description
             Text(
                 text = item.description,
-                style = MaterialTheme.typography.bodyMedium,
+                fontSize = 13.sp,
+                color = Color.White.copy(alpha = 0.7f),
                 maxLines = 2,
                 overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
             )
@@ -243,13 +291,14 @@ fun LostItemCard(
                 Icon(
                     imageVector = Icons.Default.LocationOn,
                     contentDescription = "Location",
-                    modifier = Modifier.size(16.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    modifier = Modifier.size(14.dp),
+                    tint = Color.White.copy(alpha = 0.5f)
                 )
                 Spacer(modifier = Modifier.width(4.dp))
                 Text(
                     text = item.location,
-                    style = MaterialTheme.typography.bodySmall
+                    fontSize = 11.sp,
+                    color = Color.White.copy(alpha = 0.5f)
                 )
             }
 
@@ -260,23 +309,25 @@ fun LostItemCard(
             ) {
                 Text(
                     text = "Posted by: ${item.userName}",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    fontSize = 10.sp,
+                    color = Color.White.copy(alpha = 0.4f)
                 )
                 Text(
                     text = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
                         .format(item.createdAt),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    fontSize = 10.sp,
+                    color = Color.White.copy(alpha = 0.4f)
                 )
             }
 
-            // Image if available
-            item.imageUrl?.let { url ->
-                if (url.isNotEmpty()) {
+            // Display image if available (Base64)
+            item.imageUrl?.let { base64String ->
+                if (base64String.isNotEmpty()) {
                     Spacer(modifier = Modifier.height(8.dp))
-                    AsyncImage(
-                        model = url,
+                    val imageBytes = Base64.decode(base64String, Base64.DEFAULT)
+                    val bitmap = BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.size)
+                    Image(
+                        bitmap = bitmap.asImageBitmap(),
                         contentDescription = "Item image",
                         modifier = Modifier
                             .fillMaxWidth()
@@ -286,20 +337,6 @@ fun LostItemCard(
                     )
                 }
             }
-
-            // Claim button for found items (if not owner)
-            if (item.status == "found" && currentUserId != null && currentUserId != item.userId) {
-                Spacer(modifier = Modifier.height(8.dp))
-                Button(
-                    onClick = { /* Navigate to claim item */ },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.secondary
-                    )
-                ) {
-                    Text("Claim Item")
-                }
-            }
         }
     }
 }
@@ -307,52 +344,31 @@ fun LostItemCard(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PostLostItemScreen(navController: NavController) {
+    val context = LocalContext.current
     var title by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
     var location by remember { mutableStateOf("") }
     var status by remember { mutableStateOf("lost") }
-    var selectedImageUri by remember { mutableStateOf<Uri?>(null) }
     var isUploading by remember { mutableStateOf(false) }
 
     val scope = rememberCoroutineScope()
     val firestore = FirebaseFirestore.getInstance()
-    val storage = FirebaseStorage.getInstance()
     val auth = FirebaseAuth.getInstance()
     val currentUser = auth.currentUser
 
-    // Image picker launcher
-    val imagePickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
-    ) { uri: Uri? ->
-        selectedImageUri = uri
-    }
-
-    fun uploadImageAndSave() {
+    fun saveToFirestore() {
         scope.launch {
-            if (currentUser == null) return@launch
+            if (currentUser == null) {
+                Toast.makeText(context, "Please log in to post", Toast.LENGTH_SHORT).show()
+                return@launch
+            }
 
             isUploading = true
 
             try {
-                // Get username
                 val userDoc = firestore.collection("users").document(currentUser.uid).get().await()
                 val userName = userDoc.getString("name") ?: currentUser.email ?: "Anonymous"
 
-                var imageUrl: String? = null
-
-                // Upload image if selected
-                selectedImageUri?.let { uri ->
-                    val storageRef = storage.reference
-                    val imageRef = storageRef.child("lost_items/${System.currentTimeMillis()}_${currentUser.uid}.jpg")
-
-                    val inputStream = navController.context.contentResolver.openInputStream(uri)
-                    inputStream?.let {
-                        imageRef.putStream(it).await()
-                        imageUrl = imageRef.downloadUrl.await().toString()
-                    }
-                }
-
-                // Create lost item
                 val lostItem = LostItem(
                     itemId = "",
                     userId = currentUser.uid,
@@ -360,154 +376,218 @@ fun PostLostItemScreen(navController: NavController) {
                     title = title,
                     description = description,
                     location = location,
-                    imageUrl = imageUrl,
+                    imageUrl = null, // No image
                     status = status,
                     createdAt = System.currentTimeMillis()
                 )
 
-                // Save to Firestore
                 firestore.collection("lost_items").add(lostItem).await()
-
+                Toast.makeText(context, "✅ Item posted successfully!", Toast.LENGTH_LONG).show()
                 isUploading = false
                 navController.navigateUp()
 
-            } catch (_: Exception) {
-                isUploading = false  // ← FIXED: Changed from isLoading to isUploading
+            } catch (e: Exception) {
+                isUploading = false
+                Toast.makeText(context, "❌ Error: ${e.message}", Toast.LENGTH_LONG).show()
             }
         }
     }
 
     Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Post Lost/Found Item") },
-                navigationIcon = {
-                    IconButton(onClick = { navController.navigateUp() }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer
-                )
-            )
-        }
+        modifier = Modifier.fillMaxSize(),
+        containerColor = Color.Transparent
     ) { paddingValues ->
-        LazyColumn(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues),
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            item {
-                // Status selection
-                Text("Item Status", style = MaterialTheme.typography.titleMedium)
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    FilterChip(
-                        selected = status == "lost",
-                        onClick = { status = "lost" },
-                        label = { Text("Lost") }
-                    )
-                    FilterChip(
-                        selected = status == "found",
-                        onClick = { status = "found" },
-                        label = { Text("Found") }
-                    )
-                }
-            }
-
-            item {
-                OutlinedTextField(
-                    value = title,
-                    onValueChange = { title = it },
-                    label = { Text("Title") },
-                    modifier = Modifier.fillMaxWidth(),
-                    placeholder = { Text("e.g., Lost Blue Backpack") }
-                )
-            }
-
-            item {
-                OutlinedTextField(
-                    value = description,
-                    onValueChange = { description = it },
-                    label = { Text("Description") },
-                    modifier = Modifier.fillMaxWidth(),
-                    minLines = 3,
-                    placeholder = { Text("Describe the item in detail...") }
-                )
-            }
-
-            item {
-                OutlinedTextField(
-                    value = location,
-                    onValueChange = { location = it },
-                    label = { Text("Location") },
-                    modifier = Modifier.fillMaxWidth(),
-                    placeholder = { Text("Where was it lost/found?") }
-                )
-            }
-
-            item {
-                Text("Add Photo (Optional)", style = MaterialTheme.typography.titleMedium)
-                Spacer(modifier = Modifier.height(8.dp))
-
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(150.dp)
-                        .clickable { imagePickerLauncher.launch("image/*") }
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(MaterialTheme.colorScheme.surfaceVariant)
-                ) {
-                    if (selectedImageUri != null) {
-                        AsyncImage(
-                            model = selectedImageUri,
-                            contentDescription = "Selected image",
-                            modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Crop
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(
+                            Color(0xFF1A1A2E),
+                            Color(0xFF16213E),
+                            Color(0xFF0F3460)
                         )
-                        IconButton(
-                            onClick = { selectedImageUri = null },
-                            modifier = Modifier
-                                .align(Alignment.TopEnd)
-                                .padding(8.dp)
-                        ) {
-                            Icon(
-                                Icons.Default.Close,
-                                contentDescription = "Remove",
-                                tint = MaterialTheme.colorScheme.onSurface
-                            )
+                    )
+                )
+                .padding(paddingValues)
+        ) {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                item {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        IconButton(onClick = { navController.navigateUp() }) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
                         }
-                    } else {
+                        Text(
+                            text = "Report Item",
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                        Box(modifier = Modifier.size(48.dp))
+                    }
+                }
+
+                // Status Selection
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = Color.White.copy(alpha = 0.1f)
+                        )
+                    ) {
                         Column(
-                            modifier = Modifier.fillMaxSize(),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.Center
+                            modifier = Modifier.padding(16.dp)
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.Add,
-                                contentDescription = "Add photo",
-                                modifier = Modifier.size(48.dp)
-                            )
-                            Text("Tap to add photo")
+                            Text("Status", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                FilterChip(
+                                    selected = status == "lost",
+                                    onClick = { status = "lost" },
+                                    label = { Text("Lost") },
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        selectedContainerColor = Color(0xFFE94560),
+                                        containerColor = Color.White.copy(alpha = 0.1f),
+                                        selectedLabelColor = Color.White,
+                                        labelColor = Color.White.copy(alpha = 0.7f)
+                                    )
+                                )
+                                FilterChip(
+                                    selected = status == "found",
+                                    onClick = { status = "found" },
+                                    label = { Text("Found") },
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        selectedContainerColor = Color(0xFF4CAF50),
+                                        containerColor = Color.White.copy(alpha = 0.1f),
+                                        selectedLabelColor = Color.White,
+                                        labelColor = Color.White.copy(alpha = 0.7f)
+                                    )
+                                )
+                            }
                         }
                     }
                 }
-            }
 
-            item {
-                Button(
-                    onClick = { uploadImageAndSave() },
-                    modifier = Modifier.fillMaxWidth(),
-                    enabled = title.isNotBlank() && description.isNotBlank() && location.isNotBlank() && !isUploading
-                ) {
-                    if (isUploading) {
-                        CircularProgressIndicator(modifier = Modifier.size(24.dp))
-                    } else {
-                        Text("Post Item")
+                // Title
+                item {
+                    OutlinedTextField(
+                        value = title,
+                        onValueChange = { title = it },
+                        label = { Text("Title") },
+                        placeholder = { Text("e.g., Lost Blue Backpack") },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = Color(0xFFE94560),
+                            unfocusedBorderColor = Color.White.copy(alpha = 0.3f),
+                            focusedLabelColor = Color(0xFFE94560),
+                            cursorColor = Color(0xFFE94560),
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White
+                        )
+                    )
+                }
+
+                // Description
+                item {
+                    OutlinedTextField(
+                        value = description,
+                        onValueChange = { description = it },
+                        label = { Text("Description") },
+                        placeholder = { Text("Describe the item in detail...") },
+                        modifier = Modifier.fillMaxWidth(),
+                        minLines = 3,
+                        shape = RoundedCornerShape(12.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = Color(0xFFE94560),
+                            unfocusedBorderColor = Color.White.copy(alpha = 0.3f),
+                            focusedLabelColor = Color(0xFFE94560),
+                            cursorColor = Color(0xFFE94560),
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White
+                        )
+                    )
+                }
+
+                // Location
+                item {
+                    OutlinedTextField(
+                        value = location,
+                        onValueChange = { location = it },
+                        label = { Text("Location") },
+                        placeholder = { Text("Where was it lost/found?") },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        leadingIcon = { Icon(Icons.Default.LocationOn, contentDescription = null, tint = Color(0xFFE94560)) },
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = Color(0xFFE94560),
+                            unfocusedBorderColor = Color.White.copy(alpha = 0.3f),
+                            focusedLabelColor = Color(0xFFE94560),
+                            cursorColor = Color(0xFFE94560),
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White
+                        )
+                    )
+                }
+
+                // Note about photos
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = Color(0xFFE94560).copy(alpha = 0.15f)
+                        )
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(Icons.Default.Info, contentDescription = null, tint = Color(0xFFE94560), modifier = Modifier.size(20.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "ℹ️ Photos are currently disabled due to file size limits. Please provide a detailed description instead.",
+                                fontSize = 11.sp,
+                                color = Color(0xFFE94560)
+                            )
+                        }
+                    }
+                }
+
+                // Submit Button
+                item {
+                    Button(
+                        onClick = { saveToFirestore() },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(52.dp),
+                        enabled = title.isNotBlank() && description.isNotBlank() && location.isNotBlank() && !isUploading,
+                        shape = RoundedCornerShape(16.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFFE94560)
+                        )
+                    ) {
+                        if (isUploading) {
+                            Row(horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+                                CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color.White, strokeWidth = 2.dp)
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Posting...", color = Color.White, fontSize = 14.sp)
+                            }
+                        } else {
+                            Text("Post Item", color = Color.White, fontSize = 16.sp)
+                        }
                     }
                 }
             }
@@ -520,12 +600,9 @@ fun PostLostItemScreen(navController: NavController) {
 fun LostItemDetailScreen(itemId: String, navController: NavController) {
     var item by remember { mutableStateOf<LostItem?>(null) }
     var isLoading by remember { mutableStateOf(true) }
-    var showContactInfo by remember { mutableStateOf(false) }
 
     val scope = rememberCoroutineScope()
     val firestore = FirebaseFirestore.getInstance()
-    val auth = FirebaseAuth.getInstance()
-    val currentUser = auth.currentUser
 
     LaunchedEffect(itemId) {
         scope.launch {
@@ -540,183 +617,117 @@ fun LostItemDetailScreen(itemId: String, navController: NavController) {
     }
 
     Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Item Details") },
-                navigationIcon = {
-                    IconButton(onClick = { navController.navigateUp() }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer
-                )
-            )
-        }
+        modifier = Modifier.fillMaxSize(),
+        containerColor = Color.Transparent
     ) { paddingValues ->
-        when {
-            isLoading -> {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(paddingValues),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator()
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(
+                            Color(0xFF1A1A2E),
+                            Color(0xFF16213E),
+                            Color(0xFF0F3460)
+                        )
+                    )
+                )
+                .padding(paddingValues)
+        ) {
+            when {
+                isLoading -> {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(color = Color(0xFFE94560))
+                    }
                 }
-            }
-            item == null -> {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(paddingValues),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text("Item not found")
+                item == null -> {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text("Item not found", color = Color.White)
+                    }
                 }
-            }
-            else -> {
-                LazyColumn(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(paddingValues),
-                    contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    item {
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            elevation = CardDefaults.cardElevation(4.dp)
-                        ) {
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(16.dp)
-                            ) {
-                                // Status badge
-                                Surface(
-                                    shape = RoundedCornerShape(8.dp),
-                                    color = if (item!!.status == "lost")
-                                        MaterialTheme.colorScheme.errorContainer
-                                    else
-                                        MaterialTheme.colorScheme.primaryContainer,
-                                    modifier = Modifier.align(Alignment.End)
-                                ) {
-                                    Text(
-                                        text = if (item!!.status == "lost") "LOST" else "FOUND",
-                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                                        style = MaterialTheme.typography.labelMedium,
-                                        fontWeight = FontWeight.Bold,
-                                        color = if (item!!.status == "lost")
-                                            MaterialTheme.colorScheme.error
-                                        else
-                                            MaterialTheme.colorScheme.primary
-                                    )
-                                }
-
-                                Spacer(modifier = Modifier.height(8.dp))
-
-                                Text(
-                                    text = item!!.title,
-                                    style = MaterialTheme.typography.headlineSmall,
-                                    fontWeight = FontWeight.Bold
-                                )
-
-                                Spacer(modifier = Modifier.height(16.dp))
-
-                                Text(
-                                    text = "Description",
-                                    style = MaterialTheme.typography.titleMedium
-                                )
-                                Text(
-                                    text = item!!.description,
-                                    style = MaterialTheme.typography.bodyLarge
-                                )
-
-                                Spacer(modifier = Modifier.height(12.dp))
-
-                                DetailRow(
-                                    icon = Icons.Default.LocationOn,
-                                    label = "Location",
-                                    value = item!!.location
-                                )
-
-                                DetailRow(
-                                    icon = Icons.Default.Person,
-                                    label = "Posted by",
-                                    value = item!!.userName
-                                )
-
-                                DetailRow(
-                                    icon = Icons.Default.DateRange,
-                                    label = "Date Posted",
-                                    value = SimpleDateFormat("MMMM dd, yyyy 'at' hh:mm a", Locale.getDefault())
-                                        .format(item!!.createdAt)
-                                )
-
-                                // Contact info (only show if user clicked and is not the owner)
-                                if (currentUser?.uid != item!!.userId) {
-                                    Spacer(modifier = Modifier.height(8.dp))
-
-                                    if (!showContactInfo) {
-                                        Button(
-                                            onClick = { showContactInfo = true },
-                                            modifier = Modifier.fillMaxWidth()
-                                        ) {
-                                            Text("Contact Poster")
-                                        }
-                                    } else {
-                                        Card(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            colors = CardDefaults.cardColors(
-                                                containerColor = MaterialTheme.colorScheme.primaryContainer
-                                            )
-                                        ) {
-                                            Text(
-                                                text = "Contact the poster for more information about this item.",
-                                                modifier = Modifier.padding(16.dp),
-                                                style = MaterialTheme.typography.bodyMedium
-                                            )
-                                        }
-                                    }
-                                }
-
-                                // Delete button for owner
-                                if (currentUser?.uid == item!!.userId) {
-                                    Spacer(modifier = Modifier.height(8.dp))
-                                    OutlinedButton(
-                                        onClick = {
-                                            scope.launch {
-                                                firestore.collection("lost_items").document(itemId).delete().await()
-                                                navController.navigateUp()
-                                            }
-                                        },
-                                        modifier = Modifier.fillMaxWidth(),
-                                        colors = ButtonDefaults.outlinedButtonColors(
-                                            contentColor = MaterialTheme.colorScheme.error
-                                        )
-                                    ) {
-                                        Text("Delete Post")
-                                    }
-                                }
+                else -> {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        item {
+                            IconButton(onClick = { navController.navigateUp() }) {
+                                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
                             }
                         }
-                    }
 
-                    // Image if exists
-                    item!!.imageUrl?.let { url ->
-                        if (url.isNotEmpty()) {
-                            item {
-                                Text("Image", style = MaterialTheme.typography.titleMedium)
-                                AsyncImage(
-                                    model = url,
-                                    contentDescription = "Item image",
+                        item {
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(16.dp),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = Color.White.copy(alpha = 0.1f)
+                                )
+                            ) {
+                                Column(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .height(250.dp)
-                                        .clip(RoundedCornerShape(12.dp)),
-                                    contentScale = ContentScale.Crop
-                                )
+                                        .padding(20.dp)
+                                ) {
+                                    // Status Badge
+                                    Surface(
+                                        shape = RoundedCornerShape(8.dp),
+                                        color = if (item!!.status == "lost")
+                                            Color(0xFFE94560).copy(alpha = 0.2f)
+                                        else
+                                            Color(0xFF4CAF50).copy(alpha = 0.2f),
+                                        modifier = Modifier.align(Alignment.End)
+                                    ) {
+                                        Text(
+                                            text = if (item!!.status == "lost") "LOST" else "FOUND",
+                                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = if (item!!.status == "lost") Color(0xFFE94560) else Color(0xFF4CAF50)
+                                        )
+                                    }
+
+                                    Spacer(modifier = Modifier.height(12.dp))
+
+                                    Text(
+                                        text = item!!.title,
+                                        fontSize = 24.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color.White
+                                    )
+
+                                    Spacer(modifier = Modifier.height(16.dp))
+
+                                    Text("Description", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = Color.White.copy(alpha = 0.7f))
+                                    Text(item!!.description, fontSize = 14.sp, color = Color.White.copy(alpha = 0.8f))
+
+                                    Spacer(modifier = Modifier.height(12.dp))
+
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(Icons.Default.LocationOn, null, modifier = Modifier.size(16.dp), tint = Color(0xFFE94560))
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text(item!!.location, fontSize = 14.sp, color = Color.White.copy(alpha = 0.8f))
+                                    }
+
+                                    Spacer(modifier = Modifier.height(8.dp))
+
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(Icons.Default.Person, null, modifier = Modifier.size(16.dp), tint = Color(0xFFE94560))
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text("Posted by: ${item!!.userName}", fontSize = 13.sp, color = Color.White.copy(alpha = 0.6f))
+                                    }
+
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(Icons.Default.DateRange, null, modifier = Modifier.size(16.dp), tint = Color(0xFFE94560))
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text(
+                                            SimpleDateFormat("MMMM dd, yyyy 'at' hh:mm a", Locale.getDefault()).format(item!!.createdAt),
+                                            fontSize = 13.sp,
+                                            color = Color.White.copy(alpha = 0.6f)
+                                        )
+                                    }
+                                }
                             }
                         }
                     }
